@@ -63,22 +63,31 @@ jobs:
         run: |
           set -euo pipefail
           ls -l tools || true
-          for f in tools/monkeybrains-8.1.1.jar tools/api.db tools/api.mir ; do
+          for f in tools/monkeybrains-8.1.1.jar tools/compilerInfo.xml ; do
             [[ -f "$f" ]] || { echo "::error::Fichier manquant: $f"; exit 2; }
           done
+          # Les fichiers d’API peuvent s’appeler api.db / api.mir (ou autre) ;
+          # compilerInfo.xml indiquera leurs chemins au compilateur.
 
-      - name: Build .iq (JAR 8.1.1 du repo, PAS de -u, PAS de -i/-p)
+      - name: Afficher version du compilateur
         shell: bash
         run: |
           set -euo pipefail
+          java -jar tools/monkeybrains-8.1.1.jar -v || true
+
+      - name: Build .iq (sans -a/-b/-i/-p, on laisse compilerInfo.xml faire son job)
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
           mkdir -p bin
           java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
-            -a tools/api.db \
-            -b tools/api.mir \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
             -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
             -d "vivoactive4" -e -w
+          set +x
+          ls -l bin
 
       - name: Artifact
         uses: actions/upload-artifact@v4
