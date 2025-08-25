@@ -1,70 +1,80 @@
 name: CIQ Build
+
 on:
   workflow_dispatch:
   push:
     paths:
-      - "**/source/**"
-      - "**/resources/**"
-      - "**/manifest.xml"
-      - "**/monkey.jungle"
+      - "source/**"
+      - "resources/**"
+      - "manifest.xml"
+      - ".github/workflows/ciq-build.yml"
       - "tools/monkeybrains-8.1.1.jar"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      APP_DIR: .    # répertoire du projet à la racine du repo
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Java 17
         uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "17" }
+        with:
+          distribution: temurin
+          java-version: "17"
 
-      - name: Localiser le dossier appli (celui qui contient manifest.xml)
-        shell: bash
-        run: |
-          set -e
-          P=$(find . -type f -name manifest.xml -not -path "./.git/*" | head -n1)
-          [ -n "$P" ] || { echo "::error::manifest.xml introuvable dans le dépôt"; exit 1; }
-          APP_DIR=$(dirname "$P")
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
-          echo "App dir: $APP_DIR"; ls -la "$APP_DIR"
-
-      - name: Normaliser encodages (strip BOM) + jungle minimal
+      - name: Normaliser encodages + créer jungle minimal
         shell: bash
         working-directory: ${{ env.APP_DIR }}
         run: |
+          set -euo pipefail
           shopt -s globstar nullglob
-          files=(manifest.xml monkey.jungle resources/**/*.xml source/**/*.mc)
+          files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
+            # retire un éventuel BOM UTF-8
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
+          # jungle minimal à partir des chemins du projet
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
 
-      - name: Déposer la developer_key
+      - name: Déposer la developer_key (depuis secret base64)
+        shell: bash
         working-directory: ${{ env.APP_DIR }}
+        env:
+          CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
         run: |
+          set -euo pipefail
+          test -n "$CIQ_DEV_KEY_B64"
           echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
-        env: { CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }} }
+          ls -l developer_key
 
-      - name: Forcer compat vívoactive 4 dans le manifest
+      - name: Forcer compat vívoactive 4/4s dans le manifest
         shell: bash
         working-directory: ${{ env.APP_DIR }}
         run: |
+          set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
-          grep -n 'vivoactive4' manifest.xml || true
+          grep -n 'vivoactive4' manifest.xml
 
-      - name: Build .iq (JAR 8.1.1 du repo)
+      - name: Build .iq (JAR 8.1.1 du repo, sans -u)
+        shell: bash
         working-directory: ${{ env.APP_DIR }}
         run: |
+          set -euo pipefail
+          ls -l manifest.xml monkey.jungle tools/monkeybrains-8.1.1.jar
           mkdir -p bin
-          java -Xms1g -Dfile.encoding=UTF-8 -jar "$GITHUB_WORKSPACE/tools/monkeybrains-8.1.1.jar" \
-            -f "$GITHUB_WORKSPACE/${{ env.APP_DIR }}/monkey.jungle" \
-            -o "$GITHUB_WORKSPACE/${{ env.APP_DIR }}/bin/OWSwim_VA4.iq" \
-            -y "$GITHUB_WORKSPACE/${{ env.APP_DIR }}/developer_key" \
+          java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
+            -f "$PWD/monkey.jungle" \
+            -o "$PWD/bin/OWSwim_VA4.iq" \
+            -y "$PWD/developer_key" \
             -d "vivoactive4" -e -w
+          ls -l bin
 
       - name: Artifact
         uses: actions/upload-artifact@v4
