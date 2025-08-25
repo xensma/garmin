@@ -31,74 +31,50 @@ jobs:
           shopt -s globstar nullglob
           files=(manifest.xml monkey.jungle resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
-            [ -f "$f" ] || continue
-            # Retire un éventuel BOM
+            [[ -f "$f" ]] || continue
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
-          # Jungle minimal (réécrit si déjà présent)
-          printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
+          cat > monkey.jungle <<'EOF'
+          project.manifest = manifest.xml
+          base.sourcePath = source
+          base.resourcePath = resources
+          EOF
 
       - name: Déposer la developer_key (depuis secret base64)
-        shell: bash
         env:
           CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
+        shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${CIQ_DEV_KEY_B64:-}" ]; then
-            echo "::error::Le secret CIQ_DEV_KEY_B64 est vide ou non défini."
-            exit 2
-          fi
-          echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
+          test -n "${CIQ_DEV_KEY_B64:-}" || { echo "::error::Le secret CIQ_DEV_KEY_B64 est vide"; exit 1; }
+          printf "%s" "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
 
-      - name: Forcer compat vívoactive 4/4s dans le manifest
+      - name: Forcer compat vívoactive4/4s dans le manifest
         shell: bash
         run: |
           set -euo pipefail
-          # Assure minSdkVersion >= 3.1.0
-          sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml || true
-          # Remplace ou crée <iq:products> avec VA4/VA4s
-          if grep -q '<iq:products>' manifest.xml; then
-            perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
-          else
-            perl -0777 -pe 's|</iq:application>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products></iq:application>|s' -i manifest.xml
-          fi
-          grep -n 'vivoactive4' manifest.xml || true
+          sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
+          perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
+          grep -n 'vivoactive4' manifest.xml >/dev/null || { echo "::error::Les produits vivoactive4/4s ne sont pas dans manifest.xml"; exit 1; }
 
-      - name: Build .iq (JAR 8.1.1 avec API)
+      - name: Vérif outils SDK présents
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== tools contents ==="
           ls -l tools || true
-
-          # Vérifie tous les fichiers requis AVANT build
-          missing=0
-          for f in api.db api.mir api.debug.xml compilerInfo.xml monkeybrains-8.1.1.jar; do
-            if [ ! -f "tools/$f" ]; then
-              echo "::error::Fichier manquant: tools/$f"
-              missing=1
-            fi
+          for f in tools/monkeybrains-8.1.1.jar tools/api.db tools/api.mir ; do
+            [[ -f "$f" ]] || { echo "::error::Fichier manquant: $f"; exit 2; }
           done
-          if [ "$missing" -ne 0 ]; then
-            echo "::group::Aide"
-            echo "Place ces fichiers depuis le SDK Connect IQ 8.1.1 :"
-            echo "  tools/api.db, tools/api.mir, tools/api.debug.xml  (depuis <SDK>/api/)"
-            echo "  tools/compilerInfo.xml                           (depuis <SDK>/)"
-            echo "  tools/monkeybrains-8.1.1.jar                    (depuis <SDK>/bin/)"
-            echo "::endgroup::"
-            exit 2
-          fi
 
+      - name: Build .iq (JAR 8.1.1 du repo, PAS de -u, PAS de -i/-p)
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p bin
-          # Pour info : version du compiler
-          java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar -v || true
-
-          # Compilation (avec API explicite)
           java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
             -a tools/api.db \
             -b tools/api.mir \
-            -i tools/api.debug.xml \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
             -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
@@ -109,4 +85,3 @@ jobs:
         with:
           name: OWSwim_VA4
           path: bin/*.iq
-          if-no-files-found: error
