@@ -7,8 +7,8 @@ on:
       - "source/**"
       - "resources/**"
       - "manifest.xml"
-      - ".github/workflows/ciq-build.yml"
-      - "tools/*"
+      - "monkey.jungle"
+      - "tools/**"
 
 jobs:
   build:
@@ -27,6 +27,7 @@ jobs:
       - name: Normaliser encodages + jungle minimal
         shell: bash
         run: |
+          set -euo pipefail
           shopt -s globstar nullglob
           files=(manifest.xml monkey.jungle resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
@@ -35,27 +36,29 @@ jobs:
           done
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
 
-      - name: Déposer la developer_key (depuis secret base64)
+      - name: Déposer la developer_key
         shell: bash
         env:
           CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
         run: |
+          set -euo pipefail
           echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
 
       - name: Forcer compatibilité vívoactive 4/4s dans le manifest
         shell: bash
         run: |
+          set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
-          grep -n 'vivoactive4' manifest.xml
+          grep -n 'vivoactive4' manifest.xml || true
 
-            - name: Build .iq (JAR 8.1.1 du repo, avec API)
+      - name: Build .iq (JAR 8.1.1 du repo, avec API)
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p bin
           ls -l tools
-          # Compilation
           java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
             -a "$GITHUB_WORKSPACE/tools/api.db" \
             -b "$GITHUB_WORKSPACE/tools/api.mir" \
@@ -63,7 +66,6 @@ jobs:
             -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
             -d "vivoactive4" -e -w
-
 
       - name: Artifact
         uses: actions/upload-artifact@v4
