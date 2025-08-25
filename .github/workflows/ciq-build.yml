@@ -8,13 +8,11 @@ on:
       - "resources/**"
       - "manifest.xml"
       - ".github/workflows/ciq-build.yml"
-      - "tools/monkeybrains-8.1.1.jar"
+      - "tools/*"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      APP_DIR: .    # répertoire du projet à la racine du repo
 
     steps:
       - name: Checkout
@@ -26,58 +24,47 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Normaliser encodages + créer jungle minimal
+      - name: Normaliser encodages + jungle minimal
         shell: bash
-        working-directory: ${{ env.APP_DIR }}
         run: |
-          set -euo pipefail
           shopt -s globstar nullglob
-          files=(manifest.xml resources/**/*.xml source/**/*.mc)
+          files=(manifest.xml monkey.jungle resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
-            # retire un éventuel BOM UTF-8
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
-          # jungle minimal à partir des chemins du projet
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
 
       - name: Déposer la developer_key (depuis secret base64)
         shell: bash
-        working-directory: ${{ env.APP_DIR }}
         env:
           CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
         run: |
-          set -euo pipefail
-          test -n "$CIQ_DEV_KEY_B64"
           echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
-          ls -l developer_key
 
-      - name: Forcer compat vívoactive 4/4s dans le manifest
+      - name: Forcer compatibilité vívoactive 4/4s dans le manifest
         shell: bash
-        working-directory: ${{ env.APP_DIR }}
         run: |
-          set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml
 
-            - name: Build .iq (JAR 8.1.1 du repo, avec API)
+      - name: Build .iq (JAR 8.1.1 du repo, avec API)
+        shell: bash
         run: |
-          mkdir -p bin
           ls -l tools
+          mkdir -p bin
           java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
             -a tools/api.db \
             -b tools/api.mir \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
             -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
-            -d "vivoactive4" -e -w
-
-          ls -l bin
+            -d vivoactive4 -e -w
 
       - name: Artifact
         uses: actions/upload-artifact@v4
         with:
           name: OWSwim_VA4
-          path: ${{ env.APP_DIR }}/bin/*.iq
+          path: bin/*.iq
