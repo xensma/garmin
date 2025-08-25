@@ -1,0 +1,56 @@
+name: CIQ Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "source/**"
+      - "resources/**"
+      - "manifest.xml"
+      - "monkey.jungle"
+      - "tools/monkeybrains-8.1.1.jar"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+
+      - name: Normaliser encodages (strip BOM) + jungle minimal
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(manifest.xml monkey.jungle resources/**/*.xml source/**/*.mc)
+          for f in "${files[@]}"; do
+            [ -f "$f" ] || continue
+            awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+          done
+          printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
+
+      - name: Déposer la developer_key
+        run: |
+          echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
+          chmod 600 developer_key
+        env:
+          CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
+
+      - name: Forcer compat VA4 dans manifest
+        shell: bash
+        run: |
+          sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
+          perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
+          grep -n 'vivoactive4' manifest.xml
+
+      - name: Build .iq avec le JAR 8.1.1 du repo (pas de -u)
+        run: |
+          mkdir -p bin
+          java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
+            -f "$GITHUB_WORKSPACE/monkey.jungle" \
+            -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
+            -y "$GITHUB_WORKSPACE/developer_key" \
+            -d "vivoactive4" -e -w
+
+      - uses: actions/upload-artifact@v4
+        with: { name: OWSwim_VA4, path: bin/*.iq }
