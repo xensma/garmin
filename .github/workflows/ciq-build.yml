@@ -50,18 +50,20 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml
 
-      - name: Build .iq (JAR 8.1.1 du repo, avec API)
-        shell: bash
+            - name: Build .iq (JAR 8.1.1 du repo, avec API)
         run: |
-          ls -l tools
+          set -euo pipefail
           mkdir -p bin
+          ls -l tools
+          # Compilation
           java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
-            -a tools/api.db \
-            -b tools/api.mir \
+            -a "$GITHUB_WORKSPACE/tools/api.db" \
+            -b "$GITHUB_WORKSPACE/tools/api.mir" \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
             -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
-            -d vivoactive4 -e -w
+            -d "vivoactive4" -e -w
+
 
       - name: Artifact
         uses: actions/upload-artifact@v4
