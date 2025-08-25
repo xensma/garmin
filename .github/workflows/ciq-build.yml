@@ -62,18 +62,18 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml
 
-      - name: Build .iq (JAR 8.1.1 du repo, sans -u)
-        shell: bash
-        working-directory: ${{ env.APP_DIR }}
+            - name: Build .iq (JAR 8.1.1 du repo, avec API)
         run: |
-          set -euo pipefail
-          ls -l manifest.xml monkey.jungle tools/monkeybrains-8.1.1.jar
           mkdir -p bin
+          ls -l tools
           java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
-            -f "$PWD/monkey.jungle" \
-            -o "$PWD/bin/OWSwim_VA4.iq" \
-            -y "$PWD/developer_key" \
+            -a tools/api.db \
+            -b tools/api.mir \
+            -f "$GITHUB_WORKSPACE/monkey.jungle" \
+            -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
+            -y "$GITHUB_WORKSPACE/developer_key" \
             -d "vivoactive4" -e -w
+
           ls -l bin
 
       - name: Artifact
