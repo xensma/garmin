@@ -56,18 +56,28 @@ jobs:
           set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
-          grep -n 'vivoactive4' manifest.xml >/dev/null || { echo "::error::Les produits vivoactive4/4s ne sont pas dans manifest.xml"; exit 1; }
+          grep -n 'vivoactive4' manifest.xml >/dev/null
 
       - name: Vérif outils SDK présents
         shell: bash
         run: |
           set -euo pipefail
           ls -l tools || true
-          for f in tools/monkeybrains-8.1.1.jar tools/compilerInfo.xml ; do
+          for f in tools/monkeybrains-8.1.1.jar tools/compilerInfo.xml tools/api.db tools/api.mir; do
             [[ -f "$f" ]] || { echo "::error::Fichier manquant: $f"; exit 2; }
           done
-          # Les fichiers d’API peuvent s’appeler api.db / api.mir (ou autre) ;
-          # compilerInfo.xml indiquera leurs chemins au compilateur.
+
+      - name: Neutraliser toute référence debug dans compilerInfo.xml
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Sauvegarde
+          cp tools/compilerInfo.xml tools/compilerInfo.xml.bak
+          # Supprime toute ligne qui mentionne "debug" (api.debug.xml / import-dbg / etc.)
+          sed -i '/debug/i\<!-- retiré automatiquement par le workflow -->' tools/compilerInfo.xml
+          sed -i '/debug/d' tools/compilerInfo.xml
+          echo "===== compilerInfo.xml effectif ====="
+          cat tools/compilerInfo.xml
 
       - name: Afficher version du compilateur
         shell: bash
@@ -75,13 +85,15 @@ jobs:
           set -euo pipefail
           java -jar tools/monkeybrains-8.1.1.jar -v || true
 
-      - name: Build .iq (sans -a/-b/-i/-p, on laisse compilerInfo.xml faire son job)
+      - name: Build .iq (on force -a / -b, SANS -i)
         shell: bash
         run: |
           set -euo pipefail
           set -x
           mkdir -p bin
-          java -Xms1g -Dfile.encoding=UTF-8 -jar tools/monkeybrains-8.1.1.jar \
+          java -Xms1g -Dfile.encoding=UTF-8 -jar "$GITHUB_WORKSPACE/tools/monkeybrains-8.1.1.jar" \
+            -a "$GITHUB_WORKSPACE/tools/api.db" \
+            -b "$GITHUB_WORKSPACE/tools/api.mir" \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
             -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
