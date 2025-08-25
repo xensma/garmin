@@ -1,3 +1,4 @@
+# .github/workflows/ciq-build.yml
 name: CIQ Build
 
 on:
@@ -7,66 +8,18 @@ on:
       - "source/**"
       - "resources/**"
       - "manifest.xml"
+      - "monkey.jungle"
       - "tools/**"
-      - ".github/workflows/ciq-build.yml"
+
+# Empêche les files d'attente interminables et annule les runs obsolètes
+concurrency:
+  group: ciq-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Normaliser encodages + créer jungle minimal
-        shell: bash
-        run: |
-          shopt -s globstar nullglob
-          files=(manifest.xml resources/**/*.xml source/**/*.mc)
-          for f in "${files[@]}"; do
-            [ -f "$f" ] || continue
-            awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-          done
-          printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
-          mkdir -p bin
-
-      - name: Déposer la developer_key (depuis le secret)
-        shell: bash
-        env:
-          CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
-        run: |
-          echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
-          chmod 600 developer_key
-
-      - name: Forcer compat vívoactive 4/4s dans le manifest
-        shell: bash
-        run: |
-          sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
-          perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
-          grep -n 'vivoactive4' manifest.xml
-
-      # ***** ÉTAPE CRITIQUE : exécuter DEPUIS tools/ *****
-      - name: Build .iq (depuis tools/ ; -a/-b ; pas de -i / pas de -v)
-        working-directory: tools
-        shell: bash
-        run: |
-          set -euxo pipefail
-          ls -l
-          java -Xms1g -Dfile.encoding=UTF-8 -jar monkeybrains-8.1.1.jar \
-            -a api.db -b api.mir \
-            -f "$GITHUB_WORKSPACE/monkey.jungle" \
-            -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
-            -y "$GITHUB_WORKSPACE/developer_key" \
-            -d vivoactive4 -e -w
-
-      - name: Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: OWSwim_VA4
-          path: bin/*.iq
+      - uses: actions/checkout@v4
+      # … le reste de tes étapes inchangé …
