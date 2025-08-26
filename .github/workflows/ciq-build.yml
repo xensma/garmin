@@ -13,6 +13,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
@@ -25,63 +28,63 @@ jobs:
           java-version: "17"
 
       - name: Normaliser encodages + créer jungle minimal
-        shell: bash
         run: |
+          set -euo pipefail
           shopt -s globstar nullglob
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
+            # Supprime un éventuel BOM UTF-8
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
+          # Jungle minimal (dans le repo de travail)
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
           mkdir -p bin
 
       - name: Déposer la developer_key (depuis le secret)
-        shell: bash
         env:
           CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
         run: |
+          set -euo pipefail
           echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
+          test -s developer_key
 
       - name: Forcer compat vívoactive 4/4s dans le manifest
-        shell: bash
         run: |
+          set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml
 
-      # ===== NOUVELLE ÉTAPE ICI : crée tools/devices.xml si absent =====
-      # (Option CI recommandée : télécharge le SDK et copie devices.xml)
-      - name: Télécharger SDK & extraire devices.xml (si absent)
-        if: ${{ !hashFiles('tools/devices.xml') }}
-        shell: bash
-        run: |
-          set -euxo pipefail
-          : "${{ vars.CIQ_SDK_ZIP_URL }}"
-          mkdir -p "$RUNNER_TEMP/sdk"
-          cd "$RUNNER_TEMP/sdk"
-          curl -L "${{ vars.CIQ_SDK_ZIP_URL }}" -o sdk.zip
-          unzip -q sdk.zip
-          found="$(grep -ril --include='devices.xml' . | head -n 1)"
-          cp "$found" "$GITHUB_WORKSPACE/tools/devices.xml"
-
-         # ===== Build .iq =====
-      - name: Build .iq (depuis tools ; -a/-b + -u devices.xml)
+      - name: (fallback) Créer tools/devices.xml minimal
         working-directory: tools
-        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s devices.xml ]; then
+            cat > devices.xml <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<devices>
+  <device id="vivoactive4"/>
+  <device id="vivoactive4s"/>
+</devices>
+XML
+          fi
+          grep -n 'vivoactive4' devices.xml
+
+      - name: Build .iq (depuis tools ; -a/-b + -u)
+        working-directory: tools
         run: |
           set -euxo pipefail
-          # Compilation
+          # Compilation avec JAR 8.1.1 présent dans tools/
           java -Xms1g -Dfile.encoding=UTF-8 -jar monkeybrains-8.1.1.jar \
             -a api.db -b api.mir -u devices.xml \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
-            -o ../bin/OWSwim_VA4.iq \
+            -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
             -y "$GITHUB_WORKSPACE/developer_key" \
             -d vivoactive4 -e -w
-          # Visibilité + garde-fou
-          ls -l ../bin
-          test -s ../bin/OWSwim_VA4.iq
+          ls -l "$GITHUB_WORKSPACE/bin"
+          test -s "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
 
       - name: Artifact
         uses: actions/upload-artifact@v4
@@ -90,4 +93,3 @@ jobs:
           path: bin/OWSwim_VA4.iq
           if-no-files-found: error
           retention-days: 7
-
