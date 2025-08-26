@@ -32,6 +32,7 @@ jobs:
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
+            # Enlever un éventuel BOM
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
@@ -55,17 +56,18 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      # ÉCRIT TOUJOURS un projectInfo.xml propre (ENV + PRODUCTS)
-      - name: Écrire tools/projectInfo.xml (propre et complet)
+      # Écrire un projectInfo.xml COMPLET (remplace toute version cassée)
+      - name: Écrire tools/projectInfo.xml (complet et valide)
         shell: bash
         working-directory: tools
         run: |
           set -euo pipefail
-          mkdir -p .
           cat > projectInfo.xml <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">
   <iq:application>
+    <!-- IMPORTANT : le compilateur attend <iq:entry> -->
+    <iq:entry filename="../manifest.xml"/>
     <iq:languages primary="en-US"/>
     <iq:permissions/>
     <iq:products>
@@ -81,8 +83,13 @@ jobs:
   </iq:environment>
 </iq:projectInfo>
 XML
-          echo "==== tools/projectInfo.xml ===="
-          sed -n '1,200p' projectInfo.xml
+          echo "==== tools/projectInfo.xml ===="; sed -n '1,200p' projectInfo.xml
+          # validation XML simple (échoue si mal formé)
+          python3 - <<'PY'
+import xml.dom.minidom as m
+m.parse('projectInfo.xml')
+print('projectInfo.xml : OK')
+PY
 
       - name: Build .iq (via projectInfo.xml uniquement)
         working-directory: tools
@@ -96,14 +103,14 @@ XML
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
-          # Vérifications (empêche un XML cassé ou un artefact manquant)
+          # Présence des fichiers requis
           test -s "$JAR"
           test -s "$PINFO"
           test -s "$PWD/api.db"
           test -s "$PWD/api.mir"
           test -s "$PWD/compilerInfo.xml"
 
-          # Compilation: PAS de -d, PAS de -u (devices depuis <iq:products>)
+          # Pas de -d / -u : les devices viennent de <iq:products>
           java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
             -p "$PINFO" \
             -f "$JUNGLE" \
