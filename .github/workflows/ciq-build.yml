@@ -66,24 +66,28 @@ jobs:
           found="$(grep -ril --include='devices.xml' . | head -n 1)"
           cp "$found" "$GITHUB_WORKSPACE/tools/devices.xml"
 
-      # ===== Build .iq =====
+         # ===== Build .iq =====
       - name: Build .iq (depuis tools ; -a/-b + -u devices.xml)
         working-directory: tools
         shell: bash
         run: |
           set -euxo pipefail
-          test -s devices.xml
-          grep -n 'id="vivoactive4"' devices.xml | head || true
-          ls -l
+          # Compilation
           java -Xms1g -Dfile.encoding=UTF-8 -jar monkeybrains-8.1.1.jar \
             -a api.db -b api.mir -u devices.xml \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
-            -o "$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq" \
+            -o ../bin/OWSwim_VA4.iq \
             -y "$GITHUB_WORKSPACE/developer_key" \
             -d vivoactive4 -e -w
+          # Visibilité + garde-fou
+          ls -l ../bin
+          test -s ../bin/OWSwim_VA4.iq
 
       - name: Artifact
         uses: actions/upload-artifact@v4
         with:
           name: OWSwim_VA4
-          path: bin/*.iq
+          path: bin/OWSwim_VA4.iq
+          if-no-files-found: error
+          retention-days: 7
+
