@@ -34,10 +34,8 @@ jobs:
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
-            # Supprime un éventuel BOM UTF-8
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
-          # Jungle minimal (dans le repo de travail)
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
           mkdir -p bin
 
@@ -57,18 +55,16 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml
 
-      - name: (fallback) Créer tools/devices.xml minimal
+      - name: (fallback) Écrire tools/devices.xml minimal (sans heredoc)
         working-directory: tools
         run: |
           set -euo pipefail
           if [ ! -s devices.xml ]; then
-            cat > devices.xml <<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<devices>
-  <device id="vivoactive4"/>
-  <device id="vivoactive4s"/>
-</devices>
-XML
+            printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<devices>' \
+            '  <device id="vivoactive4"/>' \
+            '  <device id="vivoactive4s"/>' \
+            '</devices>' > devices.xml
           fi
           grep -n 'vivoactive4' devices.xml
 
@@ -76,7 +72,6 @@ XML
         working-directory: tools
         run: |
           set -euxo pipefail
-          # Compilation avec JAR 8.1.1 présent dans tools/
           java -Xms1g -Dfile.encoding=UTF-8 -jar monkeybrains-8.1.1.jar \
             -a api.db -b api.mir -u devices.xml \
             -f "$GITHUB_WORKSPACE/monkey.jungle" \
