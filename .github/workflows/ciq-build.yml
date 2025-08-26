@@ -7,7 +7,6 @@ on:
       - "source/**"
       - "resources/**"
       - "manifest.xml"
-      - "tools/**"
       - ".github/workflows/ciq-build.yml"
 
 jobs:
@@ -24,7 +23,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Normaliser encodages + créer jungle minimal
+      - name: Normaliser encodages + jungle minimal
         shell: bash
         run: |
           set -euo pipefail
@@ -32,13 +31,12 @@ jobs:
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
-            # Enlever un éventuel BOM
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
           mkdir -p bin
 
-      - name: Déposer la developer_key (depuis le secret)
+      - name: Déposer la developer_key
         shell: bash
         env:
           CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
@@ -56,67 +54,64 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      # Écrire un projectInfo.xml COMPLET (remplace toute version cassée)
-      - name: Écrire tools/projectInfo.xml (complet et valide)
-        shell: bash
-        working-directory: tools
-        run: |
-          set -euo pipefail
-          cat > projectInfo.xml <<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">
-  <iq:application>
-    <!-- IMPORTANT : le compilateur attend <iq:entry> -->
-    <iq:entry filename="../manifest.xml"/>
-    <iq:languages primary="en-US"/>
-    <iq:permissions/>
-    <iq:products>
-      <iq:product id="vivoactive4"/>
-      <iq:product id="vivoactive4s"/>
-    </iq:products>
-  </iq:application>
-
-  <iq:environment>
-    <iq:apiDb path="api.db"/>
-    <iq:apiMir path="api.mir"/>
-    <iq:compilerInfo path="compilerInfo.xml"/>
-  </iq:environment>
-</iq:projectInfo>
-XML
-          echo "==== tools/projectInfo.xml ===="; sed -n '1,200p' projectInfo.xml
-          # validation XML simple (échoue si mal formé)
-          python3 - <<'PY'
-import xml.dom.minidom as m
-m.parse('projectInfo.xml')
-print('projectInfo.xml : OK')
-PY
-
-      - name: Build .iq (via projectInfo.xml uniquement)
-        working-directory: tools
+      # ===== Télécharger et préparer le SDK officiel Connect IQ (Linux) =====
+      # On s'appuie sur le SDK pour avoir le couple jar/api/db + devices.xml cohérents.
+      - name: Télécharger le SDK Connect IQ (Linux)
         shell: bash
         run: |
           set -euxo pipefail
-          ls -l
-          JAR="$PWD/monkeybrains-8.1.1.jar"
-          PINFO="$PWD/projectInfo.xml"
-          JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
+          SDK_VER="4.2.5"
+          URL="https://developer.garmin.com/downloads/connect-iq/sdks/connectiq-sdk-lin-${SDK_VER}.zip"
+          mkdir -p "$RUNNER_TEMP/ciq"
+          curl -L "$URL" -o "$RUNNER_TEMP/ciq/sdk.zip"
+          unzip -q "$RUNNER_TEMP/ciq/sdk.zip" -d "$RUNNER_TEMP/ciq"
+          SDK_DIR="$(find "$RUNNER_TEMP/ciq" -maxdepth 1 -type d -name 'connectiq-sdk-lin-*' | head -n1)"
+          test -d "$SDK_DIR"
+          echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
+
+      - name: Lister composants SDK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ls -l "$SDK_DIR/bin"
+          # Variables pratiques exportées pour la suite
+          echo "MCJAR=$(ls "$SDK_DIR"/bin/monkeybrains*.jar | head -n1)" >> $GITHUB_ENV
+          echo "APIDB=$SDK_DIR/bin/api.db" >> $GITHUB_ENV
+          echo "APIMIR=$SDK_DIR/bin/api.mir" >> $GITHUB_ENV
+          echo "DEVICES=$SDK_DIR/bin/devices.xml" >> $GITHUB_ENV
+          echo "COMPINFO=$SDK_DIR/bin/compilerInfo.xml" >> $GITHUB_ENV
+
+      # ===== Build .iq avec le jar + api/db + devices.xml du SDK =====
+      - name: Build .iq (SDK officiel, -a/-b/-u, device VA4 avec fallback VA4s)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # Sanity checks
+          test -s "$MCJAR"
+          test -s "$APIDB"
+          test -s "$APIMIR"
+          test -s "$DEVICES"
+          test -s "$COMPINFO"
+          test -s developer_key
+          test -s monkey.jungle
+
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
-          KEY="$GITHUB_WORKSPACE/developer_key"
 
-          # Présence des fichiers requis
-          test -s "$JAR"
-          test -s "$PINFO"
-          test -s "$PWD/api.db"
-          test -s "$PWD/api.mir"
-          test -s "$PWD/compilerInfo.xml"
+          try_build () {
+            local dev="$1"
+            java -Xms1g -Dfile.encoding=UTF-8 -jar "$MCJAR" \
+              -a "$APIDB" -b "$APIMIR" -u "$DEVICES" \
+              -f monkey.jungle -o "$OUT" \
+              -y developer_key -d "$dev" -e -w
+          }
 
-          # Pas de -d / -u : les devices viennent de <iq:products>
-          java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-            -p "$PINFO" \
-            -f "$JUNGLE" \
-            -o "$OUT" \
-            -y "$KEY" \
-            -e -w
+          # 1) vivoactive4, 2) fallback vivoactive4s
+          if ! try_build "vivoactive4"; then
+            echo "Retry on vivoactive4s…"
+            try_build "vivoactive4s"
+          fi
+
+          test -s "$OUT"
 
       - name: Artifact
         uses: actions/upload-artifact@v4
