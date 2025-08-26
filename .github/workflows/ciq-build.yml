@@ -55,42 +55,64 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      - name: Écrire tools/projectInfo.xml (minimal, écrasement)
+      - name: Assurer un tools/projectInfo.xml valide (ENV + PRODUCTS)
         shell: bash
         working-directory: tools
         run: |
           set -euo pipefail
-          printf '%s\n' \
-            '<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">' \
-            '  <iq:application>' \
-            '    <iq:products>' \
-            '      <iq:product id="vivoactive4"/>' \
-            '      <iq:product id="vivoactive4s"/>' \
-            '    </iq:products>' \
-            '  </iq:application>' \
-            '</iq:projectInfo>' > projectInfo.xml
-          echo "=== projectInfo.xml ==="
-          sed -n '1,120p' projectInfo.xml
+          mkdir -p .
+          # Si projectInfo.xml est absent ou trop petit, on (re)génère un fichier valide
+          if [ ! -s projectInfo.xml ] || [ "$(wc -c < projectInfo.xml)" -lt 400 ]; then
+            cat > projectInfo.xml <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">
+  <iq:application>
+    <!-- Langue par défaut et permissions vides : suffisant pour compiler -->
+    <iq:languages primary="en-US"/>
+    <iq:permissions/>
+    <iq:products>
+      <iq:product id="vivoactive4"/>
+      <iq:product id="vivoactive4s"/>
+    </iq:products>
+  </iq:application>
 
-      - name: Build .iq (via projectInfo.xml, sans -d / sans -u)
+  <!-- Très important : le compilateur lit l'environnement ici -->
+  <iq:environment>
+    <iq:apiDb path="api.db"/>
+    <iq:apiMir path="api.mir"/>
+    <iq:compilerInfo path="compilerInfo.xml"/>
+  </iq:environment>
+</iq:projectInfo>
+XML
+          fi
+          echo "==== tools/projectInfo.xml ===="
+          sed -n '1,200p' projectInfo.xml
+
+      - name: Build .iq (via projectInfo.xml uniquement)
         working-directory: tools
         shell: bash
         run: |
           set -euxo pipefail
           ls -l
-          ADB="$PWD/api.db"
-          AMIR="$PWD/api.mir"
           JAR="$PWD/monkeybrains-8.1.1.jar"
           PINFO="$PWD/projectInfo.xml"
           JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
-          test -s "$ADB" && test -s "$AMIR" && test -s "$JAR" && test -s "$PINFO"
+          # Vérifications
+          test -s "$JAR"
+          test -s "$PINFO"
+          test -s "$PWD/api.db"
+          test -s "$PWD/api.mir"
+          test -s "$PWD/compilerInfo.xml"
 
+          # Compilation SANS -d et SANS -u : devices pris depuis <iq:products> du projectInfo.xml
           java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-            -a "$ADB" -b "$AMIR" -p "$PINFO" \
-            -f "$JUNGLE" -o "$OUT" -y "$KEY" \
+            -p "$PINFO" \
+            -f "$JUNGLE" \
+            -o "$OUT" \
+            -y "$KEY" \
             -e -w
 
       - name: Artifact
