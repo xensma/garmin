@@ -55,60 +55,57 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      # --- devices.xml CORRECTEMENT NAMESPACÉ (YAML-safe) ---
-      - name: Créer tools/devices.xml (namespacé) si absent
+      # Assurer que projectInfo.xml contient les bons products (et créer minimal si absent)
+      - name: Garantir les products dans tools/projectInfo.xml
         shell: bash
+        working-directory: tools
         run: |
           set -euo pipefail
-          mkdir -p tools
-          if [ ! -s tools/devices.xml ]; then
-            printf '%s\n' \
-              '<?xml version="1.0" encoding="UTF-8"?>' \
-              '<iq:devices xmlns:iq="http://www.garmin.com/xml/connectiq">' \
-              '  <iq:device id="vivoactive4"/>' \
-              '  <iq:device id="vivoactive4s"/>' \
-              '</iq:devices>' > tools/devices.xml
+          if [ ! -s projectInfo.xml ]; then
+            cat > projectInfo.xml <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">
+  <iq:application>
+    <iq:products>
+      <iq:product id="vivoactive4"/>
+      <iq:product id="vivoactive4s"/>
+    </iq:products>
+  </iq:application>
+</iq:projectInfo>
+XML
+          else
+            # Injecter les products s'ils manquent
+            if ! grep -q 'product id="vivoactive4"' projectInfo.xml; then
+              perl -0777 -pe 's|<iq:products>|<iq:products>\n      <iq:product id="vivoactive4"/>|s' -i projectInfo.xml
+            fi
+            if ! grep -q 'product id="vivoactive4s"' projectInfo.xml; then
+              perl -0777 -pe 's|<iq:products>|<iq:products>\n      <iq:product id="vivoactive4s"/>|s' -i projectInfo.xml
+            fi
           fi
-          echo "=== tools/devices.xml ==="
-          sed -n '1,50p' tools/devices.xml
+          echo "=== projectInfo.xml ==="
+          sed -n '1,120p' projectInfo.xml
 
-      - name: Build .iq (depuis tools/ ; -a/-b/-u ; device vivoactive4)
+      - name: Build .iq (via projectInfo.xml, sans -d / sans -u)
         working-directory: tools
         shell: bash
         run: |
           set -euxo pipefail
           ls -l
-
           ADB="$PWD/api.db"
           AMIR="$PWD/api.mir"
-          DEVICES="$PWD/devices.xml"
           JAR="$PWD/monkeybrains-8.1.1.jar"
+          PINFO="$PWD/projectInfo.xml"
           JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
-          test -s "$ADB" && test -s "$AMIR" && test -s "$DEVICES" && test -s "$JAR"
+          test -s "$ADB" && test -s "$AMIR" && test -s "$JAR" && test -s "$PINFO"
 
-          # 1er essai: vivoactive4
-          set +e
+          # Compilation sans -d et sans -u : les devices viennent de projectInfo.xml
           java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-            -a "$ADB" -b "$AMIR" -u "$DEVICES" \
+            -a "$ADB" -b "$AMIR" -p "$PINFO" \
             -f "$JUNGLE" -o "$OUT" -y "$KEY" \
-            -d "vivoactive4" -e -w 2>err.txt
-          rc=$?
-          set -e
-
-          if [ $rc -ne 0 ] && grep -q "Invalid device id" err.txt; then
-            echo "vivoactive4 non reconnu via devices.xml — on tente 'vivoactive4s'…" >&2
-            cat err.txt >&2 || true
-            java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-              -a "$ADB" -b "$AMIR" -u "$DEVICES" \
-              -f "$JUNGLE" -o "$OUT" -y "$KEY" \
-              -d "vivoactive4s" -e -w
-          elif [ $rc -ne 0 ]; then
-            cat err.txt >&2 || true
-            exit $rc
-          fi
+            -e -w
 
       - name: Artifact
         uses: actions/upload-artifact@v4
