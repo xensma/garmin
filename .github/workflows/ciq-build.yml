@@ -55,20 +55,19 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      # --- devices.xml CORRECTEMENT NAMESPACÉ ---
+      # --- devices.xml CORRECTEMENT NAMESPACÉ (YAML-safe) ---
       - name: Créer tools/devices.xml (namespacé) si absent
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p tools
           if [ ! -s tools/devices.xml ]; then
-            cat > tools/devices.xml <<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<iq:devices xmlns:iq="http://www.garmin.com/xml/connectiq">
-  <iq:device id="vivoactive4"/>
-  <iq:device id="vivoactive4s"/>
-</iq:devices>
-XML
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<iq:devices xmlns:iq="http://www.garmin.com/xml/connectiq">' \
+              '  <iq:device id="vivoactive4"/>' \
+              '  <iq:device id="vivoactive4s"/>' \
+              '</iq:devices>' > tools/devices.xml
           fi
           echo "=== tools/devices.xml ==="
           sed -n '1,50p' tools/devices.xml
