@@ -32,7 +32,6 @@ jobs:
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
-            # strip BOM
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
@@ -54,10 +53,27 @@ jobs:
           set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
-          grep -n 'vivoactive4' manifest.xml
+          grep -n 'vivoactive4' manifest.xml || true
 
-      # ---- BUILD (sans -u devices.xml) ----
-      - name: Build .iq (depuis tools/ ; -a/-b ; device vivoactive4 + fallback)
+      # --- devices.xml CORRECTEMENT NAMESPACÉ ---
+      - name: Créer tools/devices.xml (namespacé) si absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          if [ ! -s tools/devices.xml ]; then
+            cat > tools/devices.xml <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<iq:devices xmlns:iq="http://www.garmin.com/xml/connectiq">
+  <iq:device id="vivoactive4"/>
+  <iq:device id="vivoactive4s"/>
+</iq:devices>
+XML
+          fi
+          echo "=== tools/devices.xml ==="
+          sed -n '1,50p' tools/devices.xml
+
+      - name: Build .iq (depuis tools/ ; -a/-b/-u ; device vivoactive4)
         working-directory: tools
         shell: bash
         run: |
@@ -66,38 +82,33 @@ jobs:
 
           ADB="$PWD/api.db"
           AMIR="$PWD/api.mir"
+          DEVICES="$PWD/devices.xml"
           JAR="$PWD/monkeybrains-8.1.1.jar"
           JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
-          test -s "$ADB" && test -s "$AMIR" && test -s "$JAR"
+          test -s "$ADB" && test -s "$AMIR" && test -s "$DEVICES" && test -s "$JAR"
 
-          # Fonction d'essai qui remonte 2 si le device est invalide
-          try_build() {
-            local dev="$1"
-            set +e
-            java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-              -a "$ADB" -b "$AMIR" \
-              -f "$JUNGLE" -o "$OUT" -y "$KEY" \
-              -d "$dev" -e -w 2>err.txt
-            rc=$?
-            set -e
-            if [ $rc -ne 0 ] && grep -q "Invalid device id" err.txt; then
-              return 2
-            fi
-            return $rc
-          }
+          # 1er essai: vivoactive4
+          set +e
+          java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
+            -a "$ADB" -b "$AMIR" -u "$DEVICES" \
+            -f "$JUNGLE" -o "$OUT" -y "$KEY" \
+            -d "vivoactive4" -e -w 2>err.txt
+          rc=$?
+          set -e
 
-          if ! try_build "vivoactive4"; then
-            echo "Device 'vivoactive4' refusé, nouvel essai avec 'vivoactive4s'..."
-            # Affiche l'erreur précédente pour les logs
+          if [ $rc -ne 0 ] && grep -q "Invalid device id" err.txt; then
+            echo "vivoactive4 non reconnu via devices.xml — on tente 'vivoactive4s'…" >&2
             cat err.txt >&2 || true
-            # Essai fallback
             java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-              -a "$ADB" -b "$AMIR" \
+              -a "$ADB" -b "$AMIR" -u "$DEVICES" \
               -f "$JUNGLE" -o "$OUT" -y "$KEY" \
               -d "vivoactive4s" -e -w
+          elif [ $rc -ne 0 ]; then
+            cat err.txt >&2 || true
+            exit $rc
           fi
 
       - name: Artifact
