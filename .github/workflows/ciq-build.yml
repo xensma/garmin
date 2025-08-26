@@ -35,7 +35,6 @@ jobs:
             # strip BOM
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
-          # Jungle minimal
           printf 'project.manifest = manifest.xml\nbase.sourcePath = source\nbase.resourcePath = resources\n' > monkey.jungle
           mkdir -p bin
 
@@ -57,45 +56,49 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml
 
-      # ---------- CRÉER devices.xml si absent ----------
-      - name: Créer devices.xml minimal (dans tools/) si absent
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p tools
-          if [ ! -s tools/devices.xml ]; then
-            cat > tools/devices.xml <<'XML'
-<devices>
-  <device id="vivoactive4"/>
-  <device id="vivoactive4s"/>
-</devices>
-XML
-          fi
-          echo "Contenu de tools/devices.xml :"
-          sed -n '1,50p' tools/devices.xml
-
-      # ---------- BUILD ----------
-      - name: Build .iq (depuis tools/ ; -a/-b/-u ; device vivoactive4)
+      # ---- BUILD (sans -u devices.xml) ----
+      - name: Build .iq (depuis tools/ ; -a/-b ; device vivoactive4 + fallback)
         working-directory: tools
         shell: bash
         run: |
           set -euxo pipefail
           ls -l
-          # Chemins absolus pour éviter toute ambiguïté
+
           ADB="$PWD/api.db"
           AMIR="$PWD/api.mir"
-          DEVICES="$PWD/devices.xml"
           JAR="$PWD/monkeybrains-8.1.1.jar"
           JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
-          test -s "$ADB" && test -s "$AMIR" && test -s "$DEVICES" && test -s "$JAR"
+          test -s "$ADB" && test -s "$AMIR" && test -s "$JAR"
 
-          java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-            -a "$ADB" -b "$AMIR" -u "$DEVICES" \
-            -f "$JUNGLE" -o "$OUT" -y "$KEY" \
-            -d "vivoactive4" -e -w
+          # Fonction d'essai qui remonte 2 si le device est invalide
+          try_build() {
+            local dev="$1"
+            set +e
+            java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
+              -a "$ADB" -b "$AMIR" \
+              -f "$JUNGLE" -o "$OUT" -y "$KEY" \
+              -d "$dev" -e -w 2>err.txt
+            rc=$?
+            set -e
+            if [ $rc -ne 0 ] && grep -q "Invalid device id" err.txt; then
+              return 2
+            fi
+            return $rc
+          }
+
+          if ! try_build "vivoactive4"; then
+            echo "Device 'vivoactive4' refusé, nouvel essai avec 'vivoactive4s'..."
+            # Affiche l'erreur précédente pour les logs
+            cat err.txt >&2 || true
+            # Essai fallback
+            java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
+              -a "$ADB" -b "$AMIR" \
+              -f "$JUNGLE" -o "$OUT" -y "$KEY" \
+              -d "vivoactive4s" -e -w
+          fi
 
       - name: Artifact
         uses: actions/upload-artifact@v4
