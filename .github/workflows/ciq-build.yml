@@ -27,7 +27,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Normalize encodings + create minimal jungle
+      - name: Normalize encodings and create jungle
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
@@ -52,43 +52,36 @@ jobs:
           chmod 600 developer_key
           test -s developer_key
 
-      - name: Force vívoactive4/4s in manifest
+      - name: Force VA4/VA4s in manifest
         run: |
           set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      - name: Write tools/projectInfo.xml (safe, no heredoc)
+      - name: Create tools/projectInfo.xml (no namespace)
         working-directory: tools
         run: |
           set -euo pipefail
-          {
-            echo '<?xml version="1.0" encoding="UTF-8"?>'
-            echo '<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">'
-            echo '  <iq:application>'
-            echo '    <iq:entry filename="../manifest.xml"/>'
-            echo '    <iq:languages primary="en-US"/>'
-            echo '    <iq:permissions/>'
-            echo '    <iq:products>'
-            echo '      <iq:product id="vivoactive4"/>'
-            echo '      <iq:product id="vivoactive4s"/>'
-            echo '    </iq:products>'
-            echo '  </iq:application>'
-            echo '  <iq:environment>'
-            echo '    <iq:apiDb path="api.db"/>'
-            echo '    <iq:apiMir path="api.mir"/>'
-            echo '    <iq:compilerInfo path="compilerInfo.xml"/>'
-            echo '  </iq:environment>'
-            echo '</iq:projectInfo>'
-          } > projectInfo.xml
-
-          # Quick XML sanity check
-          python3 - <<'PY'
-import xml.dom.minidom as m
-m.parse('projectInfo.xml')
-print('projectInfo.xml OK')
-PY
+          : > projectInfo.xml
+          printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' >> projectInfo.xml
+          printf '%s\n' '<projectInfo>' >> projectInfo.xml
+          printf '%s\n' '  <environment>' >> projectInfo.xml
+          printf '%s\n' '    <apiDb path="api.db"/>' >> projectInfo.xml
+          printf '%s\n' '    <apiMir path="api.mir"/>' >> projectInfo.xml
+          printf '%s\n' '    <compilerInfo path="compilerInfo.xml"/>' >> projectInfo.xml
+          printf '%s\n' '  </environment>' >> projectInfo.xml
+          printf '%s\n' '  <application>' >> projectInfo.xml
+          printf '%s\n' '    <entry filename="../manifest.xml"/>' >> projectInfo.xml
+          printf '%s\n' '    <languages primary="en_US"/>' >> projectInfo.xml
+          printf '%s\n' '    <permissions/>' >> projectInfo.xml
+          printf '%s\n' '    <products>' >> projectInfo.xml
+          printf '%s\n' '      <product id="vivoactive4"/>' >> projectInfo.xml
+          printf '%s\n' '      <product id="vivoactive4s"/>' >> projectInfo.xml
+          printf '%s\n' '    </products>' >> projectInfo.xml
+          printf '%s\n' '  </application>' >> projectInfo.xml
+          printf '%s\n' '</projectInfo>' >> projectInfo.xml
+          sed -n '1,200p' projectInfo.xml
 
       - name: Build .iq (use projectInfo.xml only)
         working-directory: tools
@@ -106,8 +99,8 @@ PY
           test -s "$PWD/api.mir"
           test -s "$PWD/compilerInfo.xml"
 
-          # No -d / No -u: devices are taken from <iq:products> above
           java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
+            -a "$PWD/api.db" -b "$PWD/api.mir" \
             -p "$PINFO" \
             -f "$JUNGLE" \
             -o "$OUT" \
@@ -116,7 +109,7 @@ PY
 
           ls -l "$OUT"
 
-      - name: Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: OWSwim_VA4
