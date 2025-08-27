@@ -34,7 +34,6 @@ jobs:
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           for f in "${files[@]}"; do
             [ -f "$f" ] || continue
-            # strip BOM
             awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
           printf '%s\n' \
@@ -60,39 +59,31 @@ jobs:
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      - name: Écrire tools/projectInfo.xml (propre et complet)
+      - name: Écrire tools/projectInfo.xml (sans heredoc YAML)
         working-directory: tools
         run: |
           set -euo pipefail
-          # Ici-doc YAML-safe (on retire ensuite l'indentation ajoutée par YAML)
-          cat > projectInfo.xml <<'XML'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">
-              <iq:application>
-                <iq:entry filename="../manifest.xml"/>
-                <iq:languages primary="en-US"/>
-                <iq:permissions/>
-                <iq:products>
-                  <iq:product id="vivoactive4"/>
-                  <iq:product id="vivoactive4s"/>
-                </iq:products>
-              </iq:application>
-              <iq:environment>
-                <iq:apiDb path="api.db"/>
-                <iq:apiMir path="api.mir"/>
-                <iq:compilerInfo path="compilerInfo.xml"/>
-              </iq:environment>
-            </iq:projectInfo>
-          XML
-          # Supprime les 2 espaces d'indentation introduits par YAML
-          sed -i 's/^  //' projectInfo.xml
+          : > projectInfo.xml
+          printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' >> projectInfo.xml
+          printf '%s\n' '<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">' >> projectInfo.xml
+          printf '%s\n' '  <iq:application>' >> projectInfo.xml
+          printf '%s\n' '    <iq:entry filename="../manifest.xml"/>' >> projectInfo.xml
+          printf '%s\n' '    <iq:languages primary="en-US"/>' >> projectInfo.xml
+          printf '%s\n' '    <iq:permissions/>' >> projectInfo.xml
+          printf '%s\n' '    <iq:products>' >> projectInfo.xml
+          printf '%s\n' '      <iq:product id="vivoactive4"/>' >> projectInfo.xml
+          printf '%s\n' '      <iq:product id="vivoactive4s"/>' >> projectInfo.xml
+          printf '%s\n' '    </iq:products>' >> projectInfo.xml
+          printf '%s\n' '  </iq:application>' >> projectInfo.xml
+          printf '%s\n' '  <iq:environment>' >> projectInfo.xml
+          printf '%s\n' '    <iq:apiDb path="api.db"/>' >> projectInfo.xml
+          printf '%s\n' '    <iq:apiMir path="api.mir"/>' >> projectInfo.xml
+          printf '%s\n' '    <iq:compilerInfo path="compilerInfo.xml"/>' >> projectInfo.xml
+          printf '%s\n' '  </iq:environment>' >> projectInfo.xml
+          printf '%s\n' '</iq:projectInfo>' >> projectInfo.xml
 
-          # Validation rapide (échoue si XML mal formé)
-          python3 - <<'PY'
-import xml.dom.minidom as m
-m.parse('projectInfo.xml')
-print('projectInfo.xml OK')
-PY
+          # Afficher pour contrôle
+          sed -n '1,200p' projectInfo.xml
 
       - name: Build .iq (via projectInfo.xml uniquement)
         working-directory: tools
@@ -104,14 +95,16 @@ PY
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
+          # Présence des artefacts SDK locaux
           test -s "$JAR"
           test -s "$PINFO"
           test -s "$PWD/api.db"
           test -s "$PWD/api.mir"
           test -s "$PWD/compilerInfo.xml"
 
-          # Pas de -d / -u : devices pris depuis <iq:products>
+          # Pas de -d / -u : les devices viennent de <iq:products> du projectInfo.xml
           java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
+            -a "$PWD/api.db" -b "$PWD/api.mir" \
             -p "$PINFO" \
             -f "$JUNGLE" \
             -o "$OUT" \
