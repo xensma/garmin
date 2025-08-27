@@ -212,9 +212,10 @@ jobs:
           
           echo "📝 Génération de projectInfo.xml..."
           
+          # Génération avec namespace Connect IQ approprié
           cat > projectInfo.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
-          <projectInfo>
+          <projectInfo xmlns="http://www.garmin.com/xml/connectiq" version="1.3">
             <environment>
               <apiDb path="api.db"/>
               <apiMir path="api.mir"/>
@@ -222,7 +223,7 @@ jobs:
             </environment>
             <application>
               <entry filename="../manifest.xml"/>
-              <languages primary="en_US"/>
+              <languages primary="eng"/>
               <permissions/>
               <products>
                 <product id="vivoactive4"/>
@@ -237,8 +238,15 @@ jobs:
           import xml.etree.ElementTree as ET
           import sys
           try:
-              ET.parse('projectInfo.xml')
-              print('✅ projectInfo.xml est valide')
+              tree = ET.parse('projectInfo.xml')
+              root = tree.getroot()
+              # Vérifier les éléments requis
+              env = root.find('.//{http://www.garmin.com/xml/connectiq}environment')
+              app = root.find('.//{http://www.garmin.com/xml/connectiq}application')
+              if env is None or app is None:
+                  print('❌ Structure XML manquante dans projectInfo.xml')
+                  sys.exit(1)
+              print('✅ projectInfo.xml généré avec succès')
           except ET.ParseError as e:
               print(f'❌ projectInfo.xml généré invalide: {e}')
               sys.exit(1)
@@ -246,10 +254,18 @@ jobs:
               print(f'❌ Erreur lors de la validation: {e}')
               sys.exit(1)
           "
-          
-          echo "✅ projectInfo.xml généré avec succès"
 
       - name: Build Connect IQ application
+        working-directory: tools
+        run: |
+          set -euo pipefail
+          
+          echo "🔍 Diagnostic du projectInfo.xml généré:"
+          echo "📏 Taille: $(stat -c%s projectInfo.xml) bytes"
+          echo "📄 Contenu:"
+          cat -n projectInfo.xml
+          echo ""
+          echo "🧪 Test de parsing avec monkeybrains en mode verbose..."
         working-directory: tools
         run: |
           set -euxo pipefail
