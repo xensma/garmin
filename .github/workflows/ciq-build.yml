@@ -94,7 +94,6 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-          # Pas de cache Gradle car Connect IQ n'utilise pas Gradle
 
       - name: Cache Connect IQ tools
         uses: actions/cache@v4
@@ -255,6 +254,7 @@ jobs:
               sys.exit(1)
           "
 
+      - name: Build Connect IQ application
         working-directory: tools
         run: |
           set -euxo pipefail
@@ -324,69 +324,6 @@ jobs:
             fi
           else
             echo "✅ Compilation réussie avec projectInfo.xml!"
-          fi
-          
-          # Vérification du fichier de sortie
-          if [[ ! -f "$OUT" ]]; then
-            echo "❌ Le fichier .iq n'a pas été généré"
-            exit 1
-          fi
-          
-          file_size=$(stat -c%s "$OUT")
-          echo "✅ Application compilée avec succès!"
-          echo "📦 Fichier généré: $OUT ($(numfmt --to=iec-i --suffix=B $file_size))"
-        working-directory: tools
-        run: |
-          set -euo pipefail
-          
-          echo "🔍 Diagnostic du projectInfo.xml généré:"
-          echo "📏 Taille: $(stat -c%s projectInfo.xml) bytes"
-          echo "📄 Contenu:"
-          cat -n projectInfo.xml
-          echo ""
-          echo "🧪 Test de parsing avec monkeybrains en mode verbose..."
-        working-directory: tools
-        run: |
-          set -euxo pipefail
-          
-          echo "🔨 Compilation de l'application Connect IQ..."
-          
-          # Variables pour les chemins
-          JAR="$PWD/monkeybrains-8.1.1.jar"
-          PINFO="$PWD/projectInfo.xml"
-          JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
-          OUT="$GITHUB_WORKSPACE/bin/${OUTPUT_NAME}.iq"
-          KEY="$GITHUB_WORKSPACE/developer_key"
-          
-          # Vérification finale des fichiers requis
-          required_files=("$JAR" "$PINFO" "$PWD/api.db" "$PWD/api.mir" "$PWD/compilerInfo.xml" "$KEY" "$JUNGLE")
-          for file in "${required_files[@]}"; do
-            if [[ ! -s "$file" ]]; then
-              echo "❌ Fichier requis manquant ou vide: $file"
-              exit 1
-            fi
-          done
-          
-          # Compilation avec gestion d'erreur améliorée
-          echo "🚀 Démarrage de la compilation..."
-          
-          if ! java -Xms1g -Xmx2g -Dfile.encoding=UTF-8 -jar "$JAR" \
-            -a "$PWD/api.db" \
-            -b "$PWD/api.mir" \
-            -p "$PINFO" \
-            -f "$JUNGLE" \
-            -o "$OUT" \
-            -y "$KEY" \
-            -e -w; then
-            
-            echo "❌ Échec de la compilation"
-            echo "📋 Informations de débogage:"
-            echo "  - JAR: $JAR ($(du -h "$JAR" | cut -f1))"
-            echo "  - Project Info: $PINFO"
-            echo "  - Jungle: $JUNGLE"
-            echo "  - Key: présente ($(stat -c%s "$KEY") bytes)"
-            
-            exit 1
           fi
           
           # Vérification du fichier de sortie
