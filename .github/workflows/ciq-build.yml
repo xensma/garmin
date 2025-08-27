@@ -61,12 +61,21 @@ jobs:
       - name: Validate manifest.xml syntax
         run: |
           set -euo pipefail
-          if ! xmllint --noout manifest.xml 2>/dev/null; then
-            echo "❌ manifest.xml contient des erreurs de syntaxe XML"
-            xmllint --noout manifest.xml
-            exit 1
-          fi
-          echo "✅ manifest.xml est valide"
+          
+          # Validation XML avec Python (plus rapide que l'installation d'xmllint)
+          python3 -c "
+          import xml.etree.ElementTree as ET
+          import sys
+          try:
+              ET.parse('manifest.xml')
+              print('✅ manifest.xml est valide')
+          except ET.ParseError as e:
+              print(f'❌ manifest.xml contient des erreurs de syntaxe XML: {e}')
+              sys.exit(1)
+          except Exception as e:
+              print(f'❌ Erreur lors de la validation: {e}')
+              sys.exit(1)
+          "
 
   build:
     name: Build Connect IQ Application
@@ -223,11 +232,20 @@ jobs:
           </projectInfo>
           EOF
           
-          # Vérification de la validité XML
-          if ! xmllint --noout projectInfo.xml 2>/dev/null; then
-            echo "❌ projectInfo.xml généré invalide"
-            exit 1
-          fi
+          # Vérification de la validité XML avec Python
+          python3 -c "
+          import xml.etree.ElementTree as ET
+          import sys
+          try:
+              ET.parse('projectInfo.xml')
+              print('✅ projectInfo.xml est valide')
+          except ET.ParseError as e:
+              print(f'❌ projectInfo.xml généré invalide: {e}')
+              sys.exit(1)
+          except Exception as e:
+              print(f'❌ Erreur lors de la validation: {e}')
+              sys.exit(1)
+          "
           
           echo "✅ projectInfo.xml généré avec succès"
 
