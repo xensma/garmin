@@ -27,7 +27,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Normaliser encodages + créer jungle minimal
+      - name: Normalize encodings + create minimal jungle
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
@@ -42,50 +42,55 @@ jobs:
             'base.resourcePath = resources' > monkey.jungle
           mkdir -p bin
 
-      - name: Déposer la developer_key (depuis le secret)
+      - name: Write developer_key from secret
         env:
           CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
         run: |
           set -euo pipefail
-          : "${CIQ_DEV_KEY_B64:?Secret CIQ_DEV_KEY_B64 manquant}"
+          : "${CIQ_DEV_KEY_B64:?Secret CIQ_DEV_KEY_B64 missing}"
           echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
           test -s developer_key
 
-      - name: Forcer compat vívoactive 4/4s dans le manifest
+      - name: Force vívoactive4/4s in manifest
         run: |
           set -euo pipefail
           sed -i 's/minSdkVersion="[^"]*"/minSdkVersion="3.1.0"/' manifest.xml
           perl -0777 -pe 's|<iq:products>.*?</iq:products>|<iq:products><iq:product id="vivoactive4"/><iq:product id="vivoactive4s"/></iq:products>|s' -i manifest.xml
           grep -n 'vivoactive4' manifest.xml || true
 
-      - name: Écrire tools/projectInfo.xml (sans heredoc YAML)
+      - name: Write tools/projectInfo.xml (safe, no heredoc)
         working-directory: tools
         run: |
           set -euo pipefail
-          : > projectInfo.xml
-          printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' >> projectInfo.xml
-          printf '%s\n' '<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">' >> projectInfo.xml
-          printf '%s\n' '  <iq:application>' >> projectInfo.xml
-          printf '%s\n' '    <iq:entry filename="../manifest.xml"/>' >> projectInfo.xml
-          printf '%s\n' '    <iq:languages primary="en-US"/>' >> projectInfo.xml
-          printf '%s\n' '    <iq:permissions/>' >> projectInfo.xml
-          printf '%s\n' '    <iq:products>' >> projectInfo.xml
-          printf '%s\n' '      <iq:product id="vivoactive4"/>' >> projectInfo.xml
-          printf '%s\n' '      <iq:product id="vivoactive4s"/>' >> projectInfo.xml
-          printf '%s\n' '    </iq:products>' >> projectInfo.xml
-          printf '%s\n' '  </iq:application>' >> projectInfo.xml
-          printf '%s\n' '  <iq:environment>' >> projectInfo.xml
-          printf '%s\n' '    <iq:apiDb path="api.db"/>' >> projectInfo.xml
-          printf '%s\n' '    <iq:apiMir path="api.mir"/>' >> projectInfo.xml
-          printf '%s\n' '    <iq:compilerInfo path="compilerInfo.xml"/>' >> projectInfo.xml
-          printf '%s\n' '  </iq:environment>' >> projectInfo.xml
-          printf '%s\n' '</iq:projectInfo>' >> projectInfo.xml
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<iq:projectInfo xmlns:iq="http://www.garmin.com/xml/connectiq">'
+            echo '  <iq:application>'
+            echo '    <iq:entry filename="../manifest.xml"/>'
+            echo '    <iq:languages primary="en-US"/>'
+            echo '    <iq:permissions/>'
+            echo '    <iq:products>'
+            echo '      <iq:product id="vivoactive4"/>'
+            echo '      <iq:product id="vivoactive4s"/>'
+            echo '    </iq:products>'
+            echo '  </iq:application>'
+            echo '  <iq:environment>'
+            echo '    <iq:apiDb path="api.db"/>'
+            echo '    <iq:apiMir path="api.mir"/>'
+            echo '    <iq:compilerInfo path="compilerInfo.xml"/>'
+            echo '  </iq:environment>'
+            echo '</iq:projectInfo>'
+          } > projectInfo.xml
 
-          # Afficher pour contrôle
-          sed -n '1,200p' projectInfo.xml
+          # Quick XML sanity check
+          python3 - <<'PY'
+import xml.dom.minidom as m
+m.parse('projectInfo.xml')
+print('projectInfo.xml OK')
+PY
 
-      - name: Build .iq (via projectInfo.xml uniquement)
+      - name: Build .iq (use projectInfo.xml only)
         working-directory: tools
         run: |
           set -euxo pipefail
@@ -95,16 +100,14 @@ jobs:
           OUT="$GITHUB_WORKSPACE/bin/OWSwim_VA4.iq"
           KEY="$GITHUB_WORKSPACE/developer_key"
 
-          # Présence des artefacts SDK locaux
           test -s "$JAR"
           test -s "$PINFO"
           test -s "$PWD/api.db"
           test -s "$PWD/api.mir"
           test -s "$PWD/compilerInfo.xml"
 
-          # Pas de -d / -u : les devices viennent de <iq:products> du projectInfo.xml
+          # No -d / No -u: devices are taken from <iq:products> above
           java -Xms1g -Dfile.encoding=UTF-8 -jar "$JAR" \
-            -a "$PWD/api.db" -b "$PWD/api.mir" \
             -p "$PINFO" \
             -f "$JUNGLE" \
             -o "$OUT" \
