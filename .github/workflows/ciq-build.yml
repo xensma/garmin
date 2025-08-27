@@ -94,7 +94,7 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-          cache: 'gradle' # Cache pour améliorer les performances
+          # Pas de cache Gradle car Connect IQ n'utilise pas Gradle
 
       - name: Cache Connect IQ tools
         uses: actions/cache@v4
