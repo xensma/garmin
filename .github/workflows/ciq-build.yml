@@ -256,13 +256,12 @@ jobs:
           echo "📏 Key: $(stat -c%s "$KEY") bytes"
           echo ""
           
-          # Compilation DIRECTE avec manifest (évite les problèmes de projectInfo.xml)
-          echo "🚀 Compilation directe avec manifest.xml..."
+          # Compilation DIRECTE avec jungle UNIQUEMENT (pas de -m)
+          echo "🚀 Compilation avec jungle file..."
           
           if ! java $BUILD_MEMORY -Dfile.encoding=UTF-8 -jar "$JAR" \
             -a "$PWD/api.db" \
             -b "$PWD/api.mir" \
-            -m "$MANIFEST" \
             -f "$JUNGLE" \
             -o "$OUT" \
             -y "$KEY" \
