@@ -1,0 +1,10 @@
+# Configuration pour vivoactive4
+project.manifest = manifest.xml
+
+# Chemins source et ressources
+base.sourcePath = source
+base.resourcePath = resources
+
+# Configuration spécifique vivoactive4
+vivoactive4.sourcePath = source
+vivoactive4.resourcePath = resources
