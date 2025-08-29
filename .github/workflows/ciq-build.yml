@@ -28,7 +28,7 @@ env:
   MIN_SDK_VERSION: "3.1.0"
   OUTPUT_NAME: "OWSwim_VA4"
   SUPPORTED_DEVICES: "vivoactive4"
-  COMPILER_VERSION: "8.1.1"
+  COMPILER_VERSION: "8.2.3"
   BUILD_MEMORY: "-Xms1g -Xmx2g"
 
 jobs:
