@@ -1,4 +1,4 @@
-5.1.1
+5.0.2
 <Toybox_Ant_BurstPayload_>>burstDataBlob> 8391942
 <Toybox_Ant_BurstPayload_>>size> 8391943
 <Toybox_Cryptography_CipherBasedMessageAuthenticationCode_>>mContext> 8390629
@@ -43,14 +43,11 @@
 <Toybox_SensorLogging_SensorLogger_>>mAccelStats> 8391881
 <Toybox_SensorLogging_SensorLogger_>>mGyroStats> 8391882
 <Toybox_SensorLogging_SensorLogger_>>mMagStats> 8391883
-<Toybox_Sensor_SensorInfo_>>configurationRequired> 8392363
 <Toybox_System_AppInfo_>>mIconId> 8391505
 <Toybox_UserProfile_UserActivityHistoryIterator_>>mCount> 8391862
 <Toybox_UserProfile_UserActivityHistoryIterator_>>mData> 8391861
 <Toybox_UserProfile_UserActivityHistoryIterator_>>mIndex> 8391860
 <Toybox_WatchUi_AnimationLayer_>>animation> 8391430
-<Toybox_WatchUi_ComplicationDrawableRef_>>mBoundingBox> 8392397
-<Toybox_WatchUi_ComplicationDrawableRef_>>mDrawable> 8392396
 <Toybox_WatchUi_CustomMenuItem_>>mDividerIcon> 8392305
 <Toybox_WatchUi_CustomMenuItem_>>mDrawable> 8390746
 <Toybox_WatchUi_CustomMenuItem_>>mFocused> 8390745
@@ -109,7 +106,6 @@
 <Toybox_WatchUi_ViewLoop_>>mWrap> 8391952
 <Toybox_WatchUi_View_>>mClockState> 8392057
 <Toybox_WatchUi_View_>>mControlBarOptions> 8391891
-<Toybox_WatchUi_View_>>mHasActionMenu> 8392402
 <Toybox_WatchUi_View_>>mHourHandPosition> 8391804
 <Toybox_WatchUi_View_>>mLayers> 8391438
 <Toybox_WatchUi_View_>>mMinuteHandPosition> 8391803
@@ -214,7 +210,6 @@ BATT_STATUS_NEW 8389411
 BATT_STATUS_OK 8389413
 BEHAVIOR_NEXT_PAGE 8389072
 BEHAVIOR_NONE 8389071
-BEHAVIOR_ON_ACTION_MENU 8392400
 BEHAVIOR_ON_BACK 8389075
 BEHAVIOR_ON_MENU 8389074
 BEHAVIOR_ON_NEXT_MODE 8389076
@@ -456,9 +451,6 @@ CONNECTION_STATE_CONNECTED 8390480
 CONNECTION_STATE_DISCONNECTED 8391221
 CONNECTION_STATE_NOT_CONNECTED 8390479
 CONNECTION_STATE_NOT_INITIALIZED 8390478
-CONNECTION_STATE_REJECTED 8392372
-CONNECTION_STRATEGY_DEFAULT 8392373
-CONNECTION_STRATEGY_SECURE_PAIR_BOND 8392374
 CONNECT_SERVER_CHINA 8391383
 CONNECT_SERVER_PRODUCTION 8391382
 CONNECT_SERVER_STAGE 8391385
@@ -491,13 +483,10 @@ CipherBasedMessageAuthenticationCode 8390626
 CiqInstallInfo 8391496
 ClickEvent 8389014
 ClockTime 8388709
-Color 8392333
 CommonData 8389418
 Communications 8388637
 Complication 8392013
-ComplicationDrawableRef 8392395
 ComplicationNotFoundException 8392162
-ComplicationRef 8392394
 Complications 8391962
 Confirmation 8389031
 ConfirmationDelegate 8389032
@@ -763,7 +752,6 @@ InvalidSelectableStateException 8389883
 InvalidValueException 8390766
 Iterator 8389954
 JsonData 8390088
-KEY_ACTION_MENU 8392404
 KEY_AGREEMENT_ECDH 8390603
 KEY_CLOCK 8389562
 KEY_DOWN 8388998
@@ -927,7 +915,6 @@ MOVE_BAR_LEVEL_MIN 8388907
 MSG_CODE_CHANNEL_ID_NOT_SET 8389225
 MSG_CODE_CHANNEL_IN_WRONG_STATE 8389224
 MSG_CODE_EVENT_CHANNEL_CLOSED 8389222
-MSG_CODE_EVENT_CONNECTION_REJECTED 8392371
 MSG_CODE_EVENT_CRYPTO_NEGOTIATION_FAIL 8390112
 MSG_CODE_EVENT_CRYPTO_NEGOTIATION_SUCCESS 8390111
 MSG_CODE_EVENT_QUE_OVERFLOW 8389228
@@ -986,8 +973,6 @@ NETWORK_PUBLIC 8389229
 NETWORK_REQUEST_TIMED_OUT 8388813
 NETWORK_RESPONSE_OUT_OF_MEMORY 8390487
 NETWORK_RESPONSE_TOO_LARGE 8388816
-NOTIFICATION_MESSAGE_TYPE_DISMISSED 8392377
-NOTIFICATION_MESSAGE_TYPE_SELECTED 8392378
 NUMBER_FORMAT_FLOAT 8391195
 NUMBER_FORMAT_SINT16 8391196
 NUMBER_FORMAT_SINT32 8391197
@@ -1003,8 +988,6 @@ NUMBER_PICKER_TIME 8389034
 NUMBER_PICKER_TIME_MIN_SEC 8389035
 NUMBER_PICKER_TIME_OF_DAY 8389036
 NUMBER_PICKER_WEIGHT 8389037
-NotificationMessage 8392379
-Notifications 8392365
 Number 8388758
 NumberPicker 8389041
 NumberPickerDelegate 8389042
@@ -1025,9 +1008,6 @@ PACKING_FORMAT_DEFAULT 8391903
 PACKING_FORMAT_JPG 8391906
 PACKING_FORMAT_PNG 8391905
 PACKING_FORMAT_YUV 8391904
-PHONE_OS_ANDROID 8392358
-PHONE_OS_IOS 8392359
-PHONE_OS_NOT_KNOWN 8392357
 PI 8388893
 PLAYBACK_CONTROL_LIBRARY 8391020
 PLAYBACK_CONTROL_NEXT 8390467
@@ -1126,7 +1106,6 @@ SENSOR_BIKECADENCE 8388951
 SENSOR_BIKEPOWER 8388952
 SENSOR_BIKESPEED 8388950
 SENSOR_FOOTPOD 8388953
-SENSOR_GENERIC 8392313
 SENSOR_HEARTRATE 8388954
 SENSOR_ONBOARD_HEARTRATE 8391683
 SENSOR_ONBOARD_PULSE_OXIMETRY 8391682
@@ -1355,7 +1334,6 @@ Selectable 8389884
 SelectableEvent 8389882
 Sensor 8388643
 SensorData 8390071
-SensorDelegate 8392314
 SensorHistory 8389781
 SensorHistoryIterator 8389799
 SensorInfo 8391691
@@ -1369,7 +1347,6 @@ SerializationException 8390475
 Service 8391235
 ServiceDelegate 8390147
 Session 8388879
-Settings 8392335
 Shifting 8391361
 ShiftingListener 8391362
 ShiftingStatus 8391360
@@ -1463,10 +1440,9 @@ Toybox_ActivityRecording 8388617
 Toybox_Ant 8388628
 Toybox_AntPlus 8389409
 Toybox_Application 8388629
-Toybox_Application_AppBase_<statics> 8392405
+Toybox_Application_AppBase_<statics> 8392311
 Toybox_Application_Properties 8390209
 Toybox_Application_Storage 8390210
-Toybox_Application_WatchFaceConfig 8392332
 Toybox_Attention 8388624
 Toybox_Authentication 8391868
 Toybox_Background 8390145
@@ -1483,7 +1459,6 @@ Toybox_Kpi 8391487
 Toybox_Lang 8388615
 Toybox_Math 8388618
 Toybox_Media 8390208
-Toybox_Notifications 8392366
 Toybox_PersistedContent 8389952
 Toybox_PersistedLocations 8389533
 Toybox_Position 8388630
@@ -1499,10 +1474,10 @@ Toybox_Time_Gregorian 8388621
 Toybox_Timer 8388622
 Toybox_UserProfile 8388626
 Toybox_WatchUi 8388625
-Toybox_WatchUi_DataField_<statics> 8392407
-Toybox_WatchUi_Menu2_<statics> 8392408
-Toybox_WatchUi_MenuItem_<statics> 8392409
-Toybox_WatchUi_ViewLoop_<statics> 8392406
+Toybox_WatchUi_DataField_<statics> 8392313
+Toybox_WatchUi_Menu2_<statics> 8392314
+Toybox_WatchUi_MenuItem_<statics> 8392315
+Toybox_WatchUi_ViewLoop_<statics> 8392312
 Toybox_Weather 8391486
 Track 8389974
 TransparentProgressBar 8391046
@@ -1538,10 +1513,6 @@ View 8389023
 ViewLoop 8391946
 ViewLoopDelegate 8391956
 ViewLoopFactory 8391944
-WATCH_FACE_CONFIG_TYPE_ACCENT_COLOR 8392345
-WATCH_FACE_CONFIG_TYPE_COMPLICATION 8392344
-WATCH_FACE_CONFIG_TYPE_COMPLICATION_COLOR 8392346
-WATCH_FACE_CONFIG_TYPE_STYLE 8392343
 WIFI_CONNECTION_STATUS_AIRPLANE_MODE_ACTIVE 8391602
 WIFI_CONNECTION_STATUS_BATTERY_SAVER_ACTIVE 8391600
 WIFI_CONNECTION_STATUS_CANNOT_CONNECT_TO_ACCESS_POINT 8391814
@@ -1614,7 +1585,6 @@ WORKOUT_STEP_TARGET_SWIM_STROKE 8391564
 WRITE_TYPE_DEFAULT 8391223
 WRITE_TYPE_WITH_RESPONSE 8391222
 WatchFace 8389375
-WatchFaceConfig 8392331
 WatchFaceDelegate 8390095
 WatchFacePowerInfo 8390096
 WatchUi 8388648
@@ -1633,12 +1603,9 @@ abs 8388774
 accel 8389605
 accelerometer 8390648
 accelerometerData 8390077
-accentColor 8392337
 accuracy 8389311
 acos 8388895
 acquisitionType 8391715
-action 8392367
-actions 8392368
 activeMinutes 8389877
 activeMinutesDay 8389870
 activeMinutesWeek 8389869
@@ -1648,18 +1615,12 @@ activityClass 8389150
 activityTrackingOn 8389649
 add 8388942
 addAll 8389822
-addBoundingBox 8392389
-addCircle 8392387
-addEllipse 8392388
 addEntry 8391679
 addItem 8389095
 addKey 8390612
 addLap 8388880
 addLayer 8391439
 addLocation 8390593
-addPoint 8392384
-addPoints 8392385
-addRectangle 8392386
 alarmCount 8389583
 album 8390383
 albumArt 8390388
@@ -1671,7 +1632,6 @@ altitude 8388963
 ambientPressure 8390213
 angle 8392202
 animate 8389020
-antMessage 8392355
 antSerialNumber 8391713
 appType 8391504
 appendParamsToUrl 8390068
@@ -1723,11 +1683,8 @@ bitmapWidth 8392229
 bitmapX 8392227
 bitmapY 8392228
 bleAddress 8391718
-bleScanResult 8392354
 bluetooth 8390485
-body 8392369
 bodyLocation 8390269
-boundingBox 8392398
 brightness 8391931
 bufferedBitmap 8391769
 burstPayload 8390059
@@ -1753,24 +1710,19 @@ clearProperties 8389285
 clearValues 8390429
 clockState 8392159
 close 8389257
-cloudCover 8392328
 codepage 8390553
 coefficients 8390129
 coefficients_a 8390130
 coefficients_b 8390131
 color 8389347
 colorDepth 8391722
-committed 8392347
 companyId 8391339
 compare 8388944
 compareTo 8392272
-complicationColor 8392338
 complicationId 8392014
-complicationSettings 8392339
 compute 8389137
 concatenate 8392175
 condition 8391670
-configId 8392348
 configuration 8392043
 confirm 8389647
 connectionAvailable 8390482
@@ -1829,14 +1781,12 @@ deleteWakeEvent 8390159
 descriptors 8391340
 deviceNumber 8389244
 deviceType 8389245
-dewPoint 8392327
 digest 8390515
 direction 8392203
 disableEncryption 8390127
 disableSensorType 8391688
 disabled 8390439
 discard 8388883
-dismissPrevious 8392399
 distance 8388911
 distanceToDestination 8389923
 distanceToNextPoint 8389926
@@ -1902,7 +1852,6 @@ executionTimeAverage 8390099
 executionTimeLimit 8390100
 exit 8388717
 exitTo 8389942
-expand 8392390
 face 8392219
 feDistance 8390281
 feHeartRate 8390280
@@ -1950,8 +1899,6 @@ gearMax 8391370
 gearRatio 8390302
 gearSize 8391369
 gender 8389144
-generateConnectOAuth2DiHeader 8392392
-generateConnectOAuth2ItHeader 8392393
 generateConnectOAuthHeader 8390204
 generateSecret 8390613
 generateSignedOAuthHeader 8389836
@@ -1988,7 +1935,6 @@ getCharacteristics 8391252
 getClockTime 8388714
 getColorDepth 8391721
 getComplication 8392025
-getComplicationDrawable 8392351
 getComplications 8392024
 getComponentIdentifiers 8390028
 getConnectServer 8391386
@@ -2040,7 +1986,6 @@ getHistory 8388910
 getHourlyForecast 8391663
 getIcon 8390415
 getId 8389963
-getIds 8392340
 getImage 8391035
 getIndex 8392011
 getInfo 8388909
@@ -2109,15 +2054,12 @@ getRoutes 8389971
 getRssi 8391265
 getRunningDynamics 8390267
 getScreenHeight 8392163
-getSensorConfigurationView 8392312
-getSensorDelegate 8392311
 getSensorPosition 8390268
 getService 8391246
 getServiceData 8391270
 getServiceDelegate 8390169
 getServiceUuids 8391266
 getServices 8391245
-getSettings 8392341
 getSettingsView 8391703
 getShiftingStatus 8391366
 getSimulationSettings 8390293
@@ -2200,7 +2142,6 @@ image_offset 8390376
 includePitch 8390137
 includePower 8390136
 includeRoll 8390138
-includesPoint 8392391
 indexOf 8389823
 info 8388936
 initBarrelResources 8390451
@@ -2250,9 +2191,6 @@ lat 8389305
 latitude 8389314
 launchedFromComplication 8392151
 launchedFromGlance 8391789
-launchedFromNotification 8392364
-launchedFromPostInstall 8392362
-launchedFromWatchFaceSettingsEditor 8392329
 leftButton 8391893
 leftOrCombinedPedalSmoothness 8389474
 leftTorqueEffectiveness 8389471
@@ -2310,7 +2248,6 @@ mErrorCode 8389575
 mFitContributorFields 8389934
 mFocus 8390416
 mFont 8389128
-mFooter2 8392361
 mGlancePreview 8392020
 mHeight 8389546
 mIcon 8390367
@@ -2428,16 +2365,10 @@ networkKey128Bit 8389640
 networkKey64Bit 8389639
 next 8388826
 nextArrow 8389645
-normalize 8392383
 notes 8391581
 notificationCount 8389584
-notifyError 8392325
-notifyNewSensor 8392356
-notifyPairComplete 8392323
-notifyScanComplete 8392322
 notifySyncComplete 8390340
 notifySyncProgress 8390339
-notifyUnpairComplete 8392324
 november 8389329
 now 8388922
 numChannels 8390447
@@ -2454,7 +2385,6 @@ offset 8391337
 offsetX 8391781
 offsetY 8391782
 onAccept 8389626
-onActionMenu 8392401
 onActive 8392235
 onActivityCompleted 8391171
 onAdAction 8390378
@@ -2484,7 +2414,6 @@ onConnectedStateChanged 8391258
 onCustomButton 8391045
 onDescriptorRead 8391261
 onDescriptorWrite 8391262
-onDeviceSettingChanged 8392310
 onDeviceStateUpdate 8390040
 onDisplayModeChanged 8392289
 onDone 8390422
@@ -2518,7 +2447,6 @@ onNextView 8391958
 onNightModeChanged 8391885
 onNumberPicked 8389102
 onOAuthResponse 8390200
-onPair 8392318
 onPartialUpdate 8390097
 onPedalPowerBalanceUpdate 8390035
 onPhoneAppMessage 8391507
@@ -2536,7 +2464,6 @@ onRelease 8389100
 onRepeat 8390784
 onResponse 8389108
 onRunningDynamicsUpdate 8390287
-onScan 8392317
 onScanResults 8391256
 onScanStateChange 8391255
 onSelect 8389619
@@ -2571,11 +2498,9 @@ onTitle 8390750
 onTorqueEffectivenessPedalSmoothnessUpdate 8390036
 onTransmitComplete 8390063
 onTransmitFail 8390064
-onUnpair 8392319
 onUpdate 8389124
 onValidateProperty 8391811
 onWakeTime 8390150
-onWatchFaceConfigEdited 8392349
 onWorkoutStarted 8391698
 onWorkoutStepComplete 8390685
 onWrap 8390749
@@ -2593,7 +2518,6 @@ page 8392160
 pageCtrlNative 8389057
 pageNumber 8391352
 pairDevice 8391225
-pairingRequired 8392321
 palette 8389660
 parse 8389299
 partNumber 8389675
@@ -2604,7 +2528,6 @@ peekPrevious 8390372
 period 8389808
 persistLocation 8389535
 phoneConnected 8389543
-phoneOperatingSystem 8392360
 pitch 8390081
 play 8391298
 playSpeedMultipliers 8390355
@@ -2653,7 +2576,6 @@ registerComplicationChangeCallback 8392026
 registerForActivityCompletedEvent 8391172
 registerForAppInstallStateEvent 8392279
 registerForGoalEvent 8390160
-registerForNotificationMessages 8392380
 registerForOAuthMessages 8389841
 registerForOAuthResponseEvent 8390201
 registerForPhoneAppMessageEvent 8391592
@@ -2682,7 +2604,6 @@ requestUpdate 8389026
 requestWrite 8391251
 requirePlaybackNotification 8390364
 requiresBurnInProtection 8391194
-reset 8392382
 resetContentCache 8390327
 resetContentIterator 8390557
 resetTemporalEvent 8391724
@@ -2735,7 +2656,6 @@ sensorLogger 8390184
 separatePedalSmoothnessSupport 8389473
 september 8389327
 serial 8389522
-setActionMenuIndicator 8392403
 setAlbumArt 8391012
 setAntiAlias 8391701
 setBackgroundColor 8389896
@@ -2747,7 +2667,6 @@ setChecked 8390397
 setClip 8390103
 setClockHandPosition 8391805
 setColor 8389131
-setConnectionStrategy 8392375
 setControlBar 8391892
 setData 8389864
 setDelegate 8391224
@@ -2795,8 +2714,6 @@ setProgress 8389087
 setProperty 8389283
 setScanState 8391228
 setScreenVisibleArea 8390589
-setSelectedComplication 8392350
-setSettings 8392342
 setSize 8389070
 setState 8389903
 setString 8390411
@@ -2824,7 +2741,6 @@ shiftFailureCount 8391373
 shortLabel 8392015
 showActionMenu 8392153
 showAlert 8391699
-showNotification 8392370
 showToast 8391940
 shuffle 8390442
 shuffling 8390373
@@ -2874,7 +2790,6 @@ stressScore 8392278
 stringToUuid 8391230
 strobeMode 8392149
 strobeSpeed 8392150
-styleId 8392336
 subSport 8388891
 subscribeToUpdates 8392027
 substring 8388797
@@ -2971,8 +2886,6 @@ userWeight 8390299
 utcInfo 8389878
 utf8ArrayToString 8389880
 uuid 8391334
-uvIndex 8392326
-valid 8392381
 validateDrawable 8390778
 validateIcon 8392304
 validateProperty 8389288
