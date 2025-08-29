@@ -1,45 +1,518 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<devices xmlns="http://www.garmin.com/xml/connectiq" version="3">
-    <device id="vivoactive4">
-        <displayName>vívoactive 4</displayName>
-        <partNumbers>
-            <partNumber>010-02174-01</partNumber>
-            <partNumber>010-02174-11</partNumber>
-        </partNumbers>
-        <screenShape>round</screenShape>
-        <screenSize>260x260</screenSize>
-        <screenDPI>328</screenDPI>
-        <displayType>mip</displayType>
-        <colorDepth>64</colorDepth>
-        <memoryLimit>524288</memoryLimit>
-        <minSdkVersion>3.3.0</minSdkVersion>
-        <maxSdkVersion>8.2.3</maxSdkVersion>
-        <appTypes>
-            <appType>watchapp</appType>
-            <appType>watchface</appType>
-            <appType>datafield</appType>
-            <appType>widget</appType>
-        </appTypes>
-    </device>
-    <device id="vivoactive4s">
-        <displayName>vívoactive 4S</displayName>
-        <partNumbers>
-            <partNumber>010-02172-01</partNumber>
-            <partNumber>010-02172-11</partNumber>
-        </partNumbers>
-        <screenShape>round</screenShape>
-        <screenSize>218x218</screenSize>
-        <screenDPI>264</screenDPI>
-        <displayType>mip</displayType>
-        <colorDepth>64</colorDepth>
-        <memoryLimit>524288</memoryLimit>
-        <minSdkVersion>3.3.0</minSdkVersion>
-        <maxSdkVersion>8.2.3</maxSdkVersion>
-        <appTypes>
-            <appType>watchapp</appType>
-            <appType>watchface</appType>
-            <appType>datafield</appType>
-            <appType>widget</appType>
-        </appTypes>
-    </device>
-</devices>
+name: CIQ Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "source/**"
+      - "resources/**"
+      - "manifest.xml"
+      - "tools/**"
+      - ".github/workflows/ciq-build.yml"
+  pull_request:
+    paths:
+      - "source/**"
+      - "resources/**"
+      - "manifest.xml"
+      - "tools/**"
+
+# Permissions minimales pour la sécurité
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+env:
+  # Variables d'environnement globales
+  JAVA_VERSION: "17"
+  MIN_SDK_VERSION: "3.1.0"
+  OUTPUT_NAME: "OWSwim_VA4"
+  TARGET_DEVICE: "vivoactive4"  # Device cible principal
+  COMPILER_VERSION: "8.2.3"
+  BUILD_MEMORY: "-Xms1g -Xmx2g"
+
+jobs:
+  validate:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required files
+        run: |
+          set -euo pipefail
+          
+          # Vérifier les fichiers requis
+          required_files=(
+            "manifest.xml"
+            "tools/monkeybrains-${COMPILER_VERSION}.jar"
+            "tools/api.db"
+            "tools/api.mir"
+            "tools/compilerInfo.xml"
+          )
+          
+          missing_files=()
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              missing_files+=("$file")
+            fi
+          done
+          
+          if [[ ${#missing_files[@]} -gt 0 ]]; then
+            echo "Fichiers manquants:"
+            printf "  - %s\n" "${missing_files[@]}"
+            exit 1
+          fi
+          
+          echo "Tous les fichiers requis sont présents"
+
+      - name: Validate manifest.xml syntax
+        run: |
+          set -euo pipefail
+          
+          # Validation XML avec Python
+          python3 -c "
+          import xml.etree.ElementTree as ET
+          import sys
+          try:
+              ET.parse('manifest.xml')
+              print('manifest.xml est valide')
+          except ET.ParseError as e:
+              print(f'manifest.xml contient des erreurs de syntaxe XML: {e}')
+              sys.exit(1)
+          except Exception as e:
+              print(f'Erreur lors de la validation: {e}')
+              sys.exit(1)
+          "
+
+  build:
+    name: Build Connect IQ Application
+    runs-on: ubuntu-latest
+    needs: validate
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Cache Java installation
+        uses: actions/cache@v4
+        with:
+          path: ~/.java
+          key: java-${{ env.JAVA_VERSION }}-${{ runner.os }}
+
+      - name: Cache Connect IQ tools
+        uses: actions/cache@v4
+        with:
+          path: tools/
+          key: ciq-tools-${{ env.COMPILER_VERSION }}-${{ hashFiles('tools/*.jar', 'tools/*.db', 'tools/*.mir') }}
+          restore-keys: |
+            ciq-tools-${{ env.COMPILER_VERSION }}-
+            ciq-tools-
+
+      - name: Setup device definitions (if missing)
+        run: |
+          set -euo pipefail
+          
+          echo "Vérification des définitions de devices..."
+          
+          # Créer le dossier devices si il n'existe pas
+          devices_dir="tools/devices"
+          target_device_dir="${devices_dir}/${TARGET_DEVICE}"
+          
+          if [[ ! -d "$target_device_dir" ]]; then
+            echo "Création des définitions manquantes pour ${TARGET_DEVICE}..."
+            mkdir -p "$target_device_dir"
+            
+            # Créer un compiler.json minimal pour vivoactive4
+            cat > "${target_device_dir}/compiler.json" << 'EOF'
+          {
+            "deviceId": "vivoactive4",
+            "displayName": "vívoactive 4",
+            "screenShape": "round",
+            "screenSize": [260, 260],
+            "screenDPI": 328,
+            "displayType": "mip",
+            "colorDepth": 64,
+            "memoryLimit": 524288,
+            "minSdkVersion": "3.3.0",
+            "maxSdkVersion": "8.2.3",
+            "appTypes": ["watchapp", "watchface", "datafield", "widget"],
+            "partNumbers": ["010-02174-01", "010-02174-11"]
+          }
+          EOF
+            
+            # Créer un simulator.json minimal
+            cat > "${target_device_dir}/simulator.json" << 'EOF'
+          {
+            "deviceId": "vivoactive4",
+            "displayName": "vívoactive 4",
+            "screenShape": "round",
+            "screenSize": [260, 260],
+            "screenDPI": 328,
+            "simulatorFeatures": {
+              "bluetooth": true,
+              "gps": true,
+              "heartrate": true,
+              "accelerometer": true,
+              "gyroscope": true,
+              "compass": true,
+              "barometer": true,
+              "wifi": true
+            }
+          }
+          EOF
+            
+            echo "Définitions créées pour ${TARGET_DEVICE}"
+          else
+            echo "Définitions existantes trouvées pour ${TARGET_DEVICE}"
+          fi
+
+      - name: Normalize file encodings
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          
+          echo "Normalisation des encodages..."
+          files=(manifest.xml resources/**/*.xml source/**/*.mc)
+          normalized_count=0
+          
+          for f in "${files[@]}"; do
+            [[ -f "$f" ]] || continue
+            
+            # Supprimer le BOM UTF-8 si présent et normaliser
+            if awk 'NR==1{sub(/^\xef\xbb\xbf/,"")}1' "$f" > "$f.tmp"; then
+              if ! cmp -s "$f" "$f.tmp"; then
+                mv "$f.tmp" "$f"
+                ((normalized_count++))
+                echo "  Normalisé: $f"
+              else
+                rm "$f.tmp"
+              fi
+            else
+              echo "  Erreur lors de la normalisation: $f"
+            fi
+          done
+          
+          echo "$normalized_count fichier(s) normalisé(s)"
+
+      - name: Generate monkey.jungle configuration
+        run: |
+          set -euo pipefail
+          
+          echo "Génération de monkey.jungle..."
+          cat > monkey.jungle << 'EOF'
+          # Configuration générée automatiquement
+          project.manifest = manifest.xml
+          base.sourcePath = source
+          base.resourcePath = resources
+          EOF
+          
+          echo "monkey.jungle créé:"
+          cat monkey.jungle
+
+      - name: Create build directory
+        run: |
+          mkdir -p bin
+          echo "Répertoire bin créé"
+
+      - name: Setup developer key
+        env:
+          CIQ_DEV_KEY_B64: ${{ secrets.CIQ_DEV_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          
+          if [[ -z "${CIQ_DEV_KEY_B64:-}" ]]; then
+            echo "Secret CIQ_DEV_KEY_B64 manquant"
+            echo "Veuillez ajouter votre clé de développeur Connect IQ encodée en base64"
+            exit 1
+          fi
+          
+          echo "Configuration de la clé de développeur..."
+          echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
+          chmod 600 developer_key
+          
+          if [[ ! -s developer_key ]]; then
+            echo "La clé de développeur est vide après décodage"
+            exit 1
+          fi
+          
+          echo "Clé de développeur configurée"
+
+      - name: Validate and fix manifest.xml
+        run: |
+          set -euo pipefail
+          
+          echo "Validation et correction du manifest.xml..."
+          
+          # Backup du manifest original
+          cp manifest.xml manifest.xml.backup
+          
+          # Vérifier et corriger la structure XML si nécessaire
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import re
+          
+          # Lire le fichier manifest
+          with open('manifest.xml', 'r', encoding='utf-8') as f:
+              content = f.read()
+          
+          # Nettoyer et valider
+          tree = ET.parse('manifest.xml')
+          root = tree.getroot()
+          
+          # Vérifier la présence des éléments requis
+          ns = {'iq': 'http://www.garmin.com/xml/connectiq'}
+          
+          app = root.find('iq:application', ns)
+          if app is None:
+              print("Erreur: élément iq:application manquant")
+              exit(1)
+          
+          # Vérifier minSdkVersion
+          min_sdk = app.get('minSdkVersion')
+          if not min_sdk or min_sdk < "3.1.0":
+              app.set('minSdkVersion', "3.1.0")
+              print(f"minSdkVersion mis à jour vers 3.1.0")
+          
+          # Vérifier les produits
+          products = app.find('iq:products', ns)
+          if products is None:
+              products = ET.SubElement(app, '{http://www.garmin.com/xml/connectiq}products')
+          
+          # S'assurer que vivoactive4 est présent
+          existing_products = [p.get('id') for p in products.findall('iq:product', ns)]
+          if 'vivoactive4' not in existing_products:
+              # Nettoyer les produits existants
+              for product in products.findall('iq:product', ns):
+                  products.remove(product)
+              # Ajouter vivoactive4
+              product = ET.SubElement(products, '{http://www.garmin.com/xml/connectiq}product')
+              product.set('id', 'vivoactive4')
+          
+          # Écrire le fichier corrigé
+          ET.register_namespace('iq', 'http://www.garmin.com/xml/connectiq')
+          tree.write('manifest.xml', encoding='utf-8', xml_declaration=True)
+          print("Manifest.xml validé et corrigé")
+          EOF
+          
+          echo "Contenu du manifest après correction:"
+          cat manifest.xml
+
+      - name: Build Connect IQ application
+        working-directory: tools
+        run: |
+          set -euxo pipefail
+          
+          echo "Compilation de l'application Connect IQ..."
+          
+          # Variables pour les chemins
+          JAR="$PWD/monkeybrains-${COMPILER_VERSION}.jar"
+          JUNGLE="$GITHUB_WORKSPACE/monkey.jungle"
+          OUT="$GITHUB_WORKSPACE/bin/${OUTPUT_NAME}.iq"
+          KEY="$GITHUB_WORKSPACE/developer_key"
+          MANIFEST="$GITHUB_WORKSPACE/manifest.xml"
+          DEVICES_DIR="$PWD/devices"
+          
+          # Vérification finale des fichiers requis
+          required_files=("$JAR" "$PWD/api.db" "$PWD/api.mir" "$PWD/compilerInfo.xml" "$KEY" "$JUNGLE" "$MANIFEST")
+          for file in "${required_files[@]}"; do
+            if [[ ! -s "$file" ]]; then
+              echo "Fichier requis manquant ou vide: $file"
+              exit 1
+            fi
+          done
+          
+          echo "Diagnostic des fichiers:"
+          echo "JAR: $(stat -c%s "$JAR") bytes"
+          echo "Manifest: $(stat -c%s "$MANIFEST") bytes"
+          echo "Jungle: $(stat -c%s "$JUNGLE") bytes"
+          echo "Key: $(stat -c%s "$KEY") bytes"
+          
+          if [[ -d "$DEVICES_DIR" ]]; then
+            echo "Devices: $DEVICES_DIR ($(ls -1 "$DEVICES_DIR" | wc -l) devices)"
+          fi
+          echo ""
+          
+          # Tentative 1: Compilation avec devices directory si disponible
+          echo "Tentative de compilation avec devices directory..."
+          compile_success=false
+          
+          if [[ -d "$DEVICES_DIR" && -d "$DEVICES_DIR/${TARGET_DEVICE}" ]]; then
+            echo "Utilisation du dossier devices local..."
+            if java $BUILD_MEMORY -Dfile.encoding=UTF-8 -jar "$JAR" \
+              -a "$PWD/api.db" \
+              -b "$PWD/api.mir" \
+              -u "$DEVICES_DIR" \
+              -f "$JUNGLE" \
+              -o "$OUT" \
+              -y "$KEY" \
+              -e -w 2>&1; then
+              compile_success=true
+              echo "Compilation réussie avec devices directory"
+            else
+              echo "Échec avec devices directory, tentative suivante..."
+            fi
+          fi
+          
+          # Tentative 2: Compilation avec paramètre -d si la première a échoué
+          if [[ "$compile_success" == "false" ]]; then
+            echo "Tentative de compilation avec paramètre -d ${TARGET_DEVICE}..."
+            if java $BUILD_MEMORY -Dfile.encoding=UTF-8 -jar "$JAR" \
+              -a "$PWD/api.db" \
+              -b "$PWD/api.mir" \
+              -d "$TARGET_DEVICE" \
+              -f "$JUNGLE" \
+              -o "$OUT" \
+              -y "$KEY" \
+              -e -w 2>&1; then
+              compile_success=true
+              echo "Compilation réussie avec paramètre -d"
+            else
+              echo "Échec avec paramètre -d, tentative suivante..."
+            fi
+          fi
+          
+          # Tentative 3: Compilation basique si les précédentes ont échoué
+          if [[ "$compile_success" == "false" ]]; then
+            echo "Tentative de compilation basique..."
+            if java $BUILD_MEMORY -Dfile.encoding=UTF-8 -jar "$JAR" \
+              -a "$PWD/api.db" \
+              -b "$PWD/api.mir" \
+              -f "$JUNGLE" \
+              -o "$OUT" \
+              -y "$KEY" \
+              -e -w 2>&1; then
+              compile_success=true
+              echo "Compilation réussie en mode basique"
+            fi
+          fi
+          
+          # Vérification finale
+          if [[ "$compile_success" == "false" ]]; then
+            echo "Toutes les tentatives de compilation ont échoué"
+            echo "Informations de débogage:"
+            echo "  - JAR: $JAR ($(du -h "$JAR" | cut -f1))"
+            echo "  - Manifest: $MANIFEST"
+            echo "  - Jungle: $JUNGLE"
+            echo "  - Key: présente ($(stat -c%s "$KEY") bytes)"
+            
+            echo "Contenu de monkey.jungle:"
+            cat "$JUNGLE"
+            
+            echo "Contenu du manifest.xml:"
+            cat "$MANIFEST"
+            
+            # Lister les devices disponibles si possible
+            if [[ -d "$DEVICES_DIR" ]]; then
+              echo "Devices disponibles:"
+              ls -la "$DEVICES_DIR"
+            fi
+            
+            exit 1
+          fi
+          
+          # Vérification du fichier de sortie
+          if [[ ! -f "$OUT" ]]; then
+            echo "Le fichier .iq n'a pas été généré"
+            exit 1
+          fi
+          
+          file_size=$(stat -c%s "$OUT")
+          echo "Application compilée avec succès!"
+          echo "Fichier généré: $OUT ($(numfmt --to=iec-i --suffix=B $file_size))"
+
+      - name: Validate generated .iq file
+        run: |
+          set -euo pipefail
+          
+          iq_file="bin/${OUTPUT_NAME}.iq"
+          
+          if [[ ! -f "$iq_file" ]]; then
+            echo "Fichier .iq non trouvé: $iq_file"
+            exit 1
+          fi
+          
+          # Vérifier que c'est un fichier ZIP valide (les .iq sont des archives ZIP)
+          if ! file "$iq_file" | grep -q -i zip; then
+            echo "Le fichier .iq ne semble pas être une archive valide"
+            file "$iq_file"
+            exit 1
+          fi
+          
+          # Test de structure de l'archive
+          echo "Test de la structure .iq..."
+          if ! unzip -t "$iq_file" >/dev/null 2>&1; then
+            echo "Archive .iq corrompue"
+            exit 1
+          fi
+          
+          # Vérifier le contenu attendu
+          expected_files=(manifest.xml)
+          missing_in_archive=()
+          
+          for expected_file in "${expected_files[@]}"; do
+            if ! unzip -l "$iq_file" | grep -q "$expected_file"; then
+              missing_in_archive+=("$expected_file")
+            fi
+          done
+          
+          if [[ ${#missing_in_archive[@]} -gt 0 ]]; then
+            echo "Fichiers manquants dans l'archive:"
+            printf "  - %s\n" "${missing_in_archive[@]}"
+          fi
+          
+          # Informations finales
+          file_size=$(stat -c%s "$iq_file")
+          
+          if (( file_size < 1024 )); then
+            echo "Le fichier .iq semble trop petit ($file_size bytes)"
+            exit 1
+          fi
+          
+          echo "Fichier .iq validé:"
+          echo "  - Taille: $(numfmt --to=iec-i --suffix=B $file_size)"
+          echo "  - Type: $(file -b "$iq_file")"
+          echo "  - Contenu: $(unzip -l "$iq_file" | wc -l) fichiers"
+          
+          # Afficher le contenu de l'archive
+          echo "Contenu de l'archive .iq:"
+          unzip -l "$iq_file"
+
+      - name: Cleanup developer key
+        if: always()
+        run: |
+          if [[ -f developer_key ]]; then
+            shred -vfz -n 3 developer_key || rm -f developer_key
+            echo "Clé de développeur nettoyée de manière sécurisée"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.OUTPUT_NAME }}
+          path: bin/*.iq
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: |
+            manifest.xml.backup
+            monkey.jungle
+            bin/
+            tools/devices/
+          retention-days: 7
+          if-no-files-found: ignore
