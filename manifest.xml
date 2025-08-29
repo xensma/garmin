@@ -1,14 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
-  <iq:application
-      id="9c3e6a12b4d8f0a1c2e3b5d7f9a0c1e2"
-      type="watch-app"
-      name="@Strings.AppName"
-      entry="OWSwimApp"
-      launcherIcon="@Drawables.LauncherIcon"
-      minSdkVersion="3.1.0">
+  <iq:application id="9c3e6a12b4d8f0a1c2e3b5d7f9a0c1e2" type="watch-app" name="@Strings.AppName" entry="OWSwimApp" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="3.1.0">
     <iq:products>
-      <iq:product id="vivoactive4"/>
+      <iq:product id="vivoactive4" />
     </iq:products>
+    <iq:permissions />
+    <iq:languages>
+      <iq:language>eng</iq:language>
+    </iq:languages>
   </iq:application>
 </iq:manifest>
