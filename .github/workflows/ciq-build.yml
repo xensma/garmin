@@ -27,7 +27,7 @@ env:
   JAVA_VERSION: "17"
   MIN_SDK_VERSION: "3.1.0"
   OUTPUT_NAME: "OWSwim_VA4"
-  SUPPORTED_DEVICES: "vivoactive4"
+  SUPPORTED_DEVICES: "vivoactive3"  # Changé de vivoactive4 à vivoactive3 pour compatibilité SDK
   COMPILER_VERSION: "8.2.3"
   BUILD_MEMORY: "-Xms1g -Xmx2g"
 
@@ -60,12 +60,12 @@ jobs:
           done
           
           if [[ ${#missing_files[@]} -gt 0 ]]; then
-            echo "❌ Fichiers manquants:"
+            echo "Fichiers manquants:"
             printf "  - %s\n" "${missing_files[@]}"
             exit 1
           fi
           
-          echo "✅ Tous les fichiers requis sont présents"
+          echo "Tous les fichiers requis sont présents"
 
       - name: Validate manifest.xml syntax
         run: |
@@ -77,12 +77,12 @@ jobs:
           import sys
           try:
               ET.parse('manifest.xml')
-              print('✅ manifest.xml est valide')
+              print('manifest.xml est valide')
           except ET.ParseError as e:
-              print(f'❌ manifest.xml contient des erreurs de syntaxe XML: {e}')
+              print(f'manifest.xml contient des erreurs de syntaxe XML: {e}')
               sys.exit(1)
           except Exception as e:
-              print(f'❌ Erreur lors de la validation: {e}')
+              print(f'Erreur lors de la validation: {e}')
               sys.exit(1)
           "
 
@@ -124,7 +124,7 @@ jobs:
           set -euo pipefail
           shopt -s globstar nullglob
           
-          echo "🔧 Normalisation des encodages..."
+          echo "Normalisation des encodages..."
           files=(manifest.xml resources/**/*.xml source/**/*.mc)
           normalized_count=0
           
@@ -136,22 +136,22 @@ jobs:
               if ! cmp -s "$f" "$f.tmp"; then
                 mv "$f.tmp" "$f"
                 ((normalized_count++))
-                echo "  ✓ Normalisé: $f"
+                echo "  Normalisé: $f"
               else
                 rm "$f.tmp"
               fi
             else
-              echo "  ⚠️  Erreur lors de la normalisation: $f"
+              echo "  Erreur lors de la normalisation: $f"
             fi
           done
           
-          echo "📊 $normalized_count fichier(s) normalisé(s)"
+          echo "$normalized_count fichier(s) normalisé(s)"
 
       - name: Generate monkey.jungle configuration
         run: |
           set -euo pipefail
           
-          echo "🐒 Génération de monkey.jungle..."
+          echo "Génération de monkey.jungle..."
           cat > monkey.jungle << 'EOF'
           # Configuration générée automatiquement
           project.manifest = manifest.xml
@@ -159,13 +159,13 @@ jobs:
           base.resourcePath = resources
           EOF
           
-          echo "✅ monkey.jungle créé:"
+          echo "monkey.jungle créé:"
           cat monkey.jungle
 
       - name: Create build directory
         run: |
           mkdir -p bin
-          echo "📁 Répertoire bin créé"
+          echo "Répertoire bin créé"
 
       - name: Setup developer key
         env:
@@ -174,34 +174,34 @@ jobs:
           set -euo pipefail
           
           if [[ -z "${CIQ_DEV_KEY_B64:-}" ]]; then
-            echo "❌ Secret CIQ_DEV_KEY_B64 manquant"
+            echo "Secret CIQ_DEV_KEY_B64 manquant"
             echo "Veuillez ajouter votre clé de développeur Connect IQ encodée en base64"
             exit 1
           fi
           
-          echo "🔑 Configuration de la clé de développeur..."
+          echo "Configuration de la clé de développeur..."
           echo "$CIQ_DEV_KEY_B64" | base64 -d > developer_key
           chmod 600 developer_key
           
           if [[ ! -s developer_key ]]; then
-            echo "❌ La clé de développeur est vide après décodage"
+            echo "La clé de développeur est vide après décodage"
             exit 1
           fi
           
-          echo "✅ Clé de développeur configurée"
+          echo "Clé de développeur configurée"
 
       - name: Configure manifest for target devices
         run: |
           set -euo pipefail
           
-          echo "⚙️  Configuration du manifest pour ${SUPPORTED_DEVICES}..."
+          echo "Configuration du manifest pour ${SUPPORTED_DEVICES}..."
           
           # Backup du manifest original
           cp manifest.xml manifest.xml.backup
           
           # Mise à jour de la version SDK minimale
           if ! sed -i "s/minSdkVersion=\"[^\"]*\"/minSdkVersion=\"${MIN_SDK_VERSION}\"/" manifest.xml; then
-            echo "❌ Erreur lors de la mise à jour de minSdkVersion"
+            echo "Erreur lors de la mise à jour de minSdkVersion"
             exit 1
           fi
           
@@ -213,25 +213,28 @@ jobs:
           done
           
           if ! perl -0777 -pe "s|<iq:products>.*?</iq:products>|<iq:products>$devices_xml</iq:products>|s" -i manifest.xml; then
-            echo "❌ Erreur lors de la mise à jour des produits"
+            echo "Erreur lors de la mise à jour des produits"
             exit 1
           fi
           
           # Vérification des modifications
-          if grep -q 'vivoactive4' manifest.xml; then
-            echo "✅ Manifest configuré pour ${SUPPORTED_DEVICES}"
-            echo "📋 Produits cibles:"
-            grep -o 'vivoactive4s\?' manifest.xml | sort -u | sed 's/^/  - /'
+          if grep -q "$SUPPORTED_DEVICES" manifest.xml; then
+            echo "Manifest configuré pour ${SUPPORTED_DEVICES}"
+            echo "Produits cibles:"
+            grep -o '<iq:product id="[^"]*"' manifest.xml | sed 's/<iq:product id="/  - /' | sed 's/"$//'
           else
-            echo "⚠️  Les produits cibles n'ont pas été trouvés dans le manifest"
+            echo "Les produits cibles n'ont pas été trouvés dans le manifest"
           fi
+          
+          echo "Contenu du manifest après modification:"
+          cat manifest.xml
 
       - name: Build Connect IQ application
         working-directory: tools
         run: |
           set -euxo pipefail
           
-          echo "🔨 Compilation de l'application Connect IQ..."
+          echo "Compilation de l'application Connect IQ..."
           
           # Variables pour les chemins
           JAR="$PWD/monkeybrains-${COMPILER_VERSION}.jar"
@@ -244,20 +247,20 @@ jobs:
           required_files=("$JAR" "$PWD/api.db" "$PWD/api.mir" "$PWD/compilerInfo.xml" "$KEY" "$JUNGLE" "$MANIFEST")
           for file in "${required_files[@]}"; do
             if [[ ! -s "$file" ]]; then
-              echo "❌ Fichier requis manquant ou vide: $file"
+              echo "Fichier requis manquant ou vide: $file"
               exit 1
             fi
           done
           
-          echo "🔍 Diagnostic des fichiers:"
-          echo "📏 JAR: $(stat -c%s "$JAR") bytes"
-          echo "📏 Manifest: $(stat -c%s "$MANIFEST") bytes"
-          echo "📏 Jungle: $(stat -c%s "$JUNGLE") bytes"
-          echo "📏 Key: $(stat -c%s "$KEY") bytes"
+          echo "Diagnostic des fichiers:"
+          echo "JAR: $(stat -c%s "$JAR") bytes"
+          echo "Manifest: $(stat -c%s "$MANIFEST") bytes"
+          echo "Jungle: $(stat -c%s "$JUNGLE") bytes"
+          echo "Key: $(stat -c%s "$KEY") bytes"
           echo ""
           
           # Compilation DIRECTE avec jungle UNIQUEMENT (pas de -m)
-          echo "🚀 Compilation avec jungle file..."
+          echo "Compilation avec jungle file..."
           
           if ! java $BUILD_MEMORY -Dfile.encoding=UTF-8 -jar "$JAR" \
             -a "$PWD/api.db" \
@@ -267,17 +270,17 @@ jobs:
             -y "$KEY" \
             -e -w; then
             
-            echo "❌ Échec de compilation"
-            echo "📋 Informations de débogage:"
+            echo "Échec de compilation"
+            echo "Informations de débogage:"
             echo "  - JAR: $JAR ($(du -h "$JAR" | cut -f1))"
             echo "  - Manifest: $MANIFEST"
             echo "  - Jungle: $JUNGLE"
             echo "  - Key: présente ($(stat -c%s "$KEY") bytes)"
             
-            echo "📄 Contenu de monkey.jungle:"
+            echo "Contenu de monkey.jungle:"
             cat "$JUNGLE"
             
-            echo "📄 Début du manifest.xml:"
+            echo "Début du manifest.xml:"
             head -n 20 "$MANIFEST"
             
             exit 1
@@ -285,13 +288,13 @@ jobs:
           
           # Vérification du fichier de sortie
           if [[ ! -f "$OUT" ]]; then
-            echo "❌ Le fichier .iq n'a pas été généré"
+            echo "Le fichier .iq n'a pas été généré"
             exit 1
           fi
           
           file_size=$(stat -c%s "$OUT")
-          echo "✅ Application compilée avec succès!"
-          echo "📦 Fichier généré: $OUT ($(numfmt --to=iec-i --suffix=B $file_size))"
+          echo "Application compilée avec succès!"
+          echo "Fichier généré: $OUT ($(numfmt --to=iec-i --suffix=B $file_size))"
 
       - name: Validate generated .iq file
         run: |
@@ -300,21 +303,21 @@ jobs:
           iq_file="bin/${OUTPUT_NAME}.iq"
           
           if [[ ! -f "$iq_file" ]]; then
-            echo "❌ Fichier .iq non trouvé: $iq_file"
+            echo "Fichier .iq non trouvé: $iq_file"
             exit 1
           fi
           
           # Vérifier que c'est un fichier ZIP valide (les .iq sont des archives ZIP)
           if ! file "$iq_file" | grep -q -i zip; then
-            echo "❌ Le fichier .iq ne semble pas être une archive valide"
+            echo "Le fichier .iq ne semble pas être une archive valide"
             file "$iq_file"
             exit 1
           fi
           
           # Test de structure de l'archive
-          echo "🔍 Test de la structure .iq..."
+          echo "Test de la structure .iq..."
           if ! unzip -t "$iq_file" >/dev/null 2>&1; then
-            echo "❌ Archive .iq corrompue"
+            echo "Archive .iq corrompue"
             exit 1
           fi
           
@@ -329,7 +332,7 @@ jobs:
           done
           
           if [[ ${#missing_in_archive[@]} -gt 0 ]]; then
-            echo "⚠️  Fichiers manquants dans l'archive:"
+            echo "Fichiers manquants dans l'archive:"
             printf "  - %s\n" "${missing_in_archive[@]}"
           fi
           
@@ -337,11 +340,11 @@ jobs:
           file_size=$(stat -c%s "$iq_file")
           
           if (( file_size < 1024 )); then
-            echo "❌ Le fichier .iq semble trop petit ($file_size bytes)"
+            echo "Le fichier .iq semble trop petit ($file_size bytes)"
             exit 1
           fi
           
-          echo "✅ Fichier .iq validé:"
+          echo "Fichier .iq validé:"
           echo "  - Taille: $(numfmt --to=iec-i --suffix=B $file_size)"
           echo "  - Type: $(file -b "$iq_file")"
           echo "  - Contenu: $(unzip -l "$iq_file" | wc -l) fichiers"
@@ -351,7 +354,7 @@ jobs:
         run: |
           if [[ -f developer_key ]]; then
             shred -vfz -n 3 developer_key || rm -f developer_key
-            echo "🔒 Clé de développeur nettoyée de manière sécurisée"
+            echo "Clé de développeur nettoyée de manière sécurisée"
           fi
 
       - name: Upload build artifact
