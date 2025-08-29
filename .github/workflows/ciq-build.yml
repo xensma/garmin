@@ -27,7 +27,7 @@ env:
   JAVA_VERSION: "17"
   MIN_SDK_VERSION: "3.1.0"
   OUTPUT_NAME: "OWSwim_VA4"
-  SUPPORTED_DEVICES: "vivoactive3"  # Changé de vivoactive4 à vivoactive3 pour compatibilité SDK
+  SUPPORTED_DEVICES: "vivoactive4"
   COMPILER_VERSION: "8.2.3"
   BUILD_MEMORY: "-Xms1g -Xmx2g"
 
